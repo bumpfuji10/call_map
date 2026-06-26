@@ -1,54 +1,52 @@
-# CallMap Initial Design
+# CallMap 初期設計
 
-## Purpose
+## 目的
 
-CallMap is a Rails code-reading aid.
+CallMap は、Rails アプリケーションのコード読解を支援するための gem です。
 
-Large Rails applications often spread one controller action across private
-controller methods, service objects, models, policies, concerns, jobs, and POROs.
-When developers read that flow by hand, they often create a rough call tree in a
-notebook, Notion, or a pull request comment.
+大規模な Rails アプリケーションでは、1つの controller action の処理が、controller の private method、service object、model、policy、concern、job、PORO などに分散しがちです。
 
-CallMap aims to generate that rough call tree automatically.
+開発者がその流れを手で追うとき、Notion やノート、PR コメントなどに、ざっくりした呼び出しツリーを書きながら読んでいくことがあります。
 
-It is not intended to be a perfect Ruby static analyzer or a complete call graph
-generator.
+CallMap は、その「読解用の調査メモ」を自動生成することを目指します。
 
-> This is not a perfect static analyzer.
-> It helps Rails developers follow controller action call paths while reading
-> large codebases.
+完全な Ruby 静的解析器や、正確な Call Graph 生成器を目指すものではありません。
 
-Japanese wording for README or docs:
+README などでは、次の姿勢を明記します。
 
 > これは完全な静的解析器ではありません。
-> 大規模Railsアプリを読むときに、Controller actionから始まる処理経路を追いやすくするための補助ツールです。
+> 大規模 Rails アプリを読むときに、Controller action から始まる処理経路を追いやすくするための補助ツールです。
 
-## Core Concept
+英語で説明する場合:
 
-Generate a stable, readable, paste-friendly call map from a Rails controller
-action or another application method.
+> This is not a perfect static analyzer.
+> It helps Rails developers follow controller action call paths while reading large codebases.
 
-The value is not smarter reasoning than an AI assistant. The value is stable
-structured output:
+## コアコンセプト
 
-- Same format every time
-- Easy to paste into Notion or pull request comments
-- Easy to diff later
-- Focused on application code, not framework internals
-- Useful as a code-reading map
+Rails の controller action、またはアプリケーション内の任意のメソッドを起点に、安定した形式で読みやすい call map を生成します。
 
-## MVP Goal
+この gem の価値は、AI より賢くコードを理解することではありません。
 
-The MVP is complete when the gem can generate a text tree from a controller
-action to depth 3.
+価値は、次のような「安定した構造化出力」にあります。
 
-Example:
+- 毎回同じ形式で出力できる
+- Notion や PR コメントに貼りやすい
+- 将来的に差分比較しやすい
+- framework 内部ではなく、アプリケーションコードに集中できる
+- コード読解用の地図として使える
+
+## MVP のゴール
+
+MVP は、controller action から深さ 3 程度までの呼び出しツリーを text tree で出せれば完了とします。
+
+例:
 
 ```bash
 bundle exec call_map OrdersController#destroy --depth=3
 ```
 
-Expected style:
+期待する出力イメージ:
 
 ```text
 OrdersController#destroy
@@ -68,11 +66,11 @@ OrdersController#destroy
 └─ redirect_to [framework]
 ```
 
-## Scope
+## 対象範囲
 
-CallMap follows application code.
+CallMap は、Rails アプリケーション内の自作コードを追います。
 
-Included:
+対象に含めるもの:
 
 - `app/controllers`
 - `app/models`
@@ -84,105 +82,108 @@ Included:
 - `app/jobs`
 - `app/workers`
 - `app/lib`
-- Other `app/**/*.rb` files
-- POROs
-- Concerns
-- Modules
-- Service objects
-- Policy objects
-- Query objects
-- Form objects
-- Usecase objects
-- Interactors
+- その他の `app/**/*.rb`
+- PORO
+- Concern
+- Module
+- Service Object
+- Policy Object
+- Query Object
+- Form Object
+- Usecase Object
+- Interactor
 
-Excluded:
+対象外:
 
-- Rails internals
-- Ruby standard library internals
-- Bundled gem internals
+- Rails 本体
+- Ruby 標準ライブラリ内部
+- Bundler で入れた gem 内部
 
-Framework calls may be displayed as leaf nodes.
+framework 由来の呼び出しは、葉ノードとして表示して止めてもよいです。
 
-Example:
+例:
 
 ```text
 User.find [framework]
 ```
 
-CallMap should not descend into `ActiveRecord::FinderMethods`, Arel, Rails, or
-third-party gem implementation details.
+`ActiveRecord::FinderMethods`、Arel、Rails 内部、third-party gem の実装詳細には潜りません。
 
-## Starting Point
+## 起点
 
-Initial CLI target:
+初期 CLI の target は、次の形式を想定します。
 
 ```text
 ClassName#method_name
 ```
 
-MVP user-facing example:
+MVP のユーザー向け例:
 
 ```bash
 bundle exec call_map OrdersController#destroy
 ```
 
-Open design question:
+未決事項:
 
-- Should the CLI officially support any `ClassName#method_name` from the start?
-- Or should the product language say "controller action first" while the internal
-  implementation already supports any class method?
+- public CLI として、最初から任意の `ClassName#method_name` を正式に許可するか
+- それともプロダクト上は「controller action 起点」を強調しつつ、内部実装だけ任意メソッドに対応しておくか
 
-Current leaning:
+現在の leaning:
 
-- Internal implementation should support any class or instance method target.
-- MVP documentation should emphasize controller actions.
+- 内部実装は、任意の class method / instance method を起点にできる形にする
+- MVP の説明では、controller action 起点を強調する
 
-## Analysis Strategy
+## 解析方式
 
-MVP should use static analysis.
+MVP では静的解析を使います。
 
-Runtime tracing is intentionally out of scope for the first version because it
-requires a runnable Rails environment, test data, request setup, authentication,
-and environment-specific behavior.
+実行時トレースは初期バージョンでは対象外にします。
 
-Static analysis tradeoff:
+理由:
 
-- Easier to run on any codebase
-- More deterministic output
-- Cannot fully resolve dynamic Ruby behavior
-- Good enough for a code-reading map
+- 実際に Rails アプリケーションを起動する必要がある
+- request setup、認証、test data、DB、credentials などに依存する
+- 環境差分が大きい
+- CLI として気軽に使いにくくなる
 
-## Parser Choice
+静的解析のトレードオフ:
 
-Open question:
+- 任意のコードベースで実行しやすい
+- 出力が安定しやすい
+- 動的な Ruby の挙動は完全には解決できない
+- ただし、コード読解用の補助地図としては十分に価値がある
+
+## Parser の選択
+
+未決事項:
 
 - `parser` gem
-- `Prism`
+- Prism
 
-Initial leaning:
+初期 leaning:
 
-- Use `parser` gem for the first prototype because examples and ecosystem
-  knowledge are mature.
-- Keep the parser boundary isolated so Prism can be considered later.
+- プロトタイプでは `parser` gem が始めやすい
+- 既存知見と事例が多い
+- ただし parser 固有の AST 依存は狭い境界に閉じ込める
+- 将来的に Prism へ差し替えられる余地を残す
 
-The implementation should avoid leaking parser-specific AST details throughout
-the codebase.
+実装では、parser 固有の AST node 処理をコードベース全体へ散らさないようにします。
 
-## Call Patterns for MVP
+## MVP で対応する呼び出しパターン
 
-The first version should handle:
+初期バージョンでは、次の呼び出しに対応します。
 
-- Same-class method calls
-- Private method calls
+- 同一クラス内メソッド呼び出し
+- private method 呼び出し
 - `SomeService.execute(...)`
 - `SomeClass.call(...)`
 - `SomeClass.new(...).execute`
 - `before_action :method_name`
-- Application class instance methods when resolvable
-- Framework-like calls as leaf nodes
-- Dynamic calls as leaf nodes with `[dynamic]`
+- 解決可能な自作クラスの instance method
+- framework っぽい呼び出しの葉ノード表示
+- dynamic call の葉ノード表示
 
-Examples:
+例:
 
 ```ruby
 authenticate_user!
@@ -194,7 +195,7 @@ current_user.orders.find(params[:id])
 public_send(method_name)
 ```
 
-Possible output:
+出力例:
 
 ```text
 public_send(method_name) [dynamic]
@@ -203,11 +204,11 @@ current_user.orders.find [framework]
 
 ## Rails DSL
 
-MVP should support:
+MVP で対応したいもの:
 
 - `before_action`
 
-Later candidates:
+将来候補:
 
 - `around_action`
 - `after_action`
@@ -218,19 +219,18 @@ Later candidates:
 - `has_many`
 - `belongs_to`
 - `validates`
-- Model callbacks
+- model callback
 
-`before_action` matters early because authentication, authorization, and setup
-logic often live there.
+`before_action` は、認証、認可、事前セットアップが入ることが多いため、早めに対応する価値があります。
 
-Example:
+例:
 
 ```ruby
 before_action :authenticate_user!
 before_action :set_order, only: [:destroy]
 ```
 
-Possible output:
+出力例:
 
 ```text
 OrdersController#destroy
@@ -239,27 +239,27 @@ OrdersController#destroy
 └─ action body
 ```
 
-## Depth and Cycles
+## 深さ制限と循環参照
 
-Default depth:
+デフォルトの探索深さ:
 
 ```text
 3
 ```
 
-Example:
+例:
 
 ```bash
 bundle exec call_map OrdersController#destroy --depth=3
 ```
 
-Cycle handling:
+循環参照への対応:
 
-- Track visited method identifiers.
-- Stop when the same method is reached again.
-- Mark the node as circular.
+- 訪問済みの method identifier を記録する
+- 同じメソッドへ再訪したら止める
+- circular として表示する
 
-Example:
+例:
 
 ```text
 SomeService#execute
@@ -267,13 +267,13 @@ SomeService#execute
    └─ execute [circular]
 ```
 
-## Output Formats
+## 出力形式
 
 MVP:
 
-- Text tree
+- text tree
 
-Likely later order:
+将来の優先順位:
 
 1. Markdown
 2. Mermaid
@@ -281,18 +281,17 @@ Likely later order:
 4. HTML
 5. Graphviz
 
-Reasoning:
+理由:
 
-- Text tree is easiest to inspect in a terminal.
-- Markdown and Mermaid are useful for Notion and pull requests.
-- JSON is useful for CI, diffing, and editor integrations.
+- text tree は terminal で確認しやすい
+- Markdown と Mermaid は Notion や PR コメントに貼りやすい
+- JSON は CI、差分比較、editor integration に使いやすい
 
-## Method Comments
+## メソッド直上コメント
 
-CallMap should be able to include comments immediately above a method
-definition.
+CallMap は、メソッド定義の直上にあるコメントを扱えるようにします。
 
-Example:
+例:
 
 ```ruby
 # 注文削除前に、削除可能な状態か検証する
@@ -301,7 +300,7 @@ def validate_deletable!
 end
 ```
 
-Possible output:
+出力案:
 
 ```text
 OrderDeleteService#execute
@@ -310,27 +309,26 @@ OrderDeleteService#execute
    └─ OrderDeletionPolicy#validate!
 ```
 
-This fits CallMap's purpose because the tool is a code-reading aid, not only a
-call graph. Method comments often explain business intent, permissions, side
-effects, operational warnings, or domain-specific rules that matter when reading
-a controller action flow.
+この機能は CallMap の目的に合っています。
 
-Initial policy:
+CallMap は単なる call graph ではなく、コード読解補助ツールです。
+メソッド直上コメントには、業務意図、権限、side effect、運用上の注意、domain rule が書かれていることがあります。
 
-- Support method-leading comments as metadata in the internal model.
-- Prefer an opt-in CLI flag for rendering comments at first.
-- Avoid rendering very long comments by default because they can reduce tree
-  readability.
+初期方針:
 
-Possible CLI:
+- 内部モデルでは method-leading comment を metadata として持つ
+- 最初は CLI flag で opt-in 表示にする
+- 長すぎるコメントは tree の視認性を落とすため、デフォルト表示は慎重に扱う
+
+CLI 案:
 
 ```bash
 bundle exec call_map OrdersController#destroy --include-comments
 ```
 
-## CLI Shape
+## CLI 形状
 
-Candidate command names:
+コマンド名候補:
 
 - `call_map`
 - `rails_call_map`
@@ -339,18 +337,18 @@ Candidate command names:
 - `rails_code_path`
 - `action_trace`
 
-Current leaning:
+現在の leaning:
 
-- Gem name: `call_map`
-- CLI command: `call_map`
+- Gem 名: `call_map`
+- CLI コマンド: `call_map`
 
-Initial options:
+初期オプション:
 
 ```bash
 bundle exec call_map OrdersController#destroy --depth=3
 ```
 
-Later options:
+将来オプション:
 
 ```bash
 --format=text
@@ -363,11 +361,11 @@ Later options:
 --exclude-framework
 ```
 
-## Accuracy Policy
+## 正確性の方針
 
-CallMap should explicitly avoid claiming perfect accuracy.
+CallMap は、完璧な正確性を主張しません。
 
-Ruby and Rails features that are hard or impossible to fully resolve statically:
+Ruby / Rails には、静的解析で完全に解決するのが難しい機能があります。
 
 - `send`
 - `public_send`
@@ -376,20 +374,20 @@ Ruby and Rails features that are hard or impossible to fully resolve statically:
 - `constantize`
 - `delegate`
 - ActiveRecord dynamic methods
-- Rails DSLs
-- Runtime dependency injection
+- Rails DSL
+- runtime dependency injection
 
-Policy:
+方針:
 
-- Resolve simple, common Rails application patterns.
-- Display unresolved dynamic calls instead of hiding them.
-- Prefer useful maps over theoretically complete call graphs.
+- よくある Rails アプリケーションの単純なパターンを解決する
+- 解決できない dynamic call は隠さず表示する
+- 理論的に完全な call graph より、読解に役立つ map を優先する
 
-## Fixture App for Tests
+## テスト用 fixture app
 
-Use a small Rails-like fixture app.
+小さな Rails 風 fixture app を用意します。
 
-Suggested layout:
+想定レイアウト:
 
 ```text
 spec/fixtures/rails_app/
@@ -401,22 +399,23 @@ spec/fixtures/rails_app/
   app/notifiers/order_deleted_notifier.rb
 ```
 
-Important test cases:
+重要なテストケース:
 
-- Controller action body calls
-- Private controller methods
+- controller action body の呼び出し
+- controller の private method
 - `before_action`
 - `before_action only: [...]`
-- Service `.execute`
-- Service `.call`
+- service `.execute`
+- service `.call`
 - `SomeClass.new(...).execute`
-- Policy method calls
-- Framework leaf calls
-- Dynamic call display
-- Depth limit
-- Circular call detection
+- policy method call
+- framework leaf call
+- dynamic call 表示
+- depth limit
+- circular call detection
+- メソッド直上コメント
 
-## Example Fixture
+## Fixture 例
 
 ```ruby
 class OrdersController < ApplicationController
@@ -474,18 +473,17 @@ class OrderDeleteService
 end
 ```
 
-## Future Auth Focus
+## 将来の auth focus
 
-Authorization and authentication can be treated as a focused view of the same
-call map.
+認証・認可は、call map の一部として focus 表示できます。
 
-Possible CLI:
+CLI 案:
 
 ```bash
 bundle exec call_map OrdersController#destroy --focus=auth
 ```
 
-Possible output:
+出力案:
 
 ```text
 OrdersController#destroy
@@ -497,39 +495,39 @@ OrdersController#destroy
       └─ OrderDeletionPolicy#validate!
 ```
 
-This should probably be a later feature, not part of the MVP.
+これは MVP ではなく、将来機能として扱うのがよさそうです。
 
-## Non-Goals for MVP
+## MVP でやらないこと
 
-- Perfect Ruby static analysis
-- Complete call graph generation
-- Rails internals analysis
-- Gem internals analysis
-- Ruby standard library internals analysis
-- Runtime request tracing
-- Model callback graph
-- Full concern/module method resolution
-- Full metaprogramming support
-- Mermaid, JSON, Graphviz, or HTML output
+- 完璧な Ruby 静的解析
+- 完全な call graph 生成
+- Rails 内部解析
+- Gem 内部解析
+- Ruby 標準ライブラリ内部解析
+- runtime request tracing
+- model callback graph
+- Concern / Module の完全な method resolution
+- metaprogramming の完全対応
+- Mermaid、JSON、Graphviz、HTML 出力
 - VS Code extension
 - CI integration
 
-## Open Questions
+## 未決事項
 
-1. Should the public CLI support arbitrary class/method targets in the MVP?
-2. Should the first parser be `parser` gem or Prism?
-3. How should ActiveRecord chains be displayed?
-4. How much effort should go into resolving model methods?
-5. How should included concerns and modules be resolved?
-6. Should `around_action` and `after_action` be supported near MVP?
-7. How should `self.execute -> new.execute` be represented?
-8. Should dynamic `send(:foo)` be resolved when the symbol is literal?
-9. Should unresolved calls default to `[framework]`, `[unknown]`, or no suffix?
-10. Should auth focus be a first-class feature or a later formatter/filter?
+1. public CLI は MVP から任意の class/method target をサポートするか
+2. 最初の parser は `parser` gem か Prism か
+3. ActiveRecord chain をどう表示するか
+4. model method の解決にどこまで労力をかけるか
+5. include された concern / module をどう解決するか
+6. `around_action` と `after_action` を MVP 近くで対応するか
+7. `self.execute -> new.execute` をどう表現するか
+8. `send(:foo)` のような symbol literal dynamic call を解決するか
+9. unresolved call の suffix は `[framework]`、`[unknown]`、なし、のどれにするか
+10. auth focus を first-class feature にするか、後続の formatter/filter にするか
 
-## Initial Implementation Sketch
+## 初期実装スケッチ
 
-Suggested components:
+想定コンポーネント:
 
 - `CallMap::CLI`
 - `CallMap::SourceIndex`
@@ -540,21 +538,19 @@ Suggested components:
 - `CallMap::Tree`
 - `CallMap::Formatters::TextTree`
 
-High-level flow:
+大まかな流れ:
 
-1. Build an index of application Ruby files under `app/**/*.rb`.
-2. Record class/module definitions.
-3. Record instance and class method definitions.
-4. Record leading method comments when present.
-5. Record supported Rails DSL metadata, starting with `before_action`.
-6. Resolve the requested target.
-7. Extract calls from the target method body.
-8. Resolve calls into application methods when possible.
-9. Stop at framework, unknown, dynamic, depth-limited, or circular calls.
-10. Print a text tree.
+1. `app/**/*.rb` 配下の Ruby ファイルを index する
+2. class / module 定義を記録する
+3. instance method / class method 定義を記録する
+4. メソッド直上コメントがあれば記録する
+5. `before_action` から対応する Rails DSL metadata を記録する
+6. 指定された target を解決する
+7. target method body から呼び出しを抽出する
+8. 可能なら application method へ解決する
+9. framework、unknown、dynamic、depth limit、circular call で停止する
+10. text tree を出力する
 
-## Success Criterion
+## 成功基準
 
-The first useful version should automatically generate about 70% of the call map
-that a developer would otherwise write manually while reading a controller
-action.
+最初の有用なバージョンでは、開発者が controller action を読むときに手で書いている call map の 70% 程度を自動生成できることを目指します。
