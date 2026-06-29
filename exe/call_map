@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+require "call_map"
+require "call_map/cli"
+
+CallMap::CLI.start(ARGV)
