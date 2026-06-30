@@ -20,6 +20,9 @@ module CallMap
         end
       end.parse!(argv)
       options
+    rescue OptionParser::ParseError => e
+      warn "Error: #{e.message}"
+      exit 1
     end
 
     def self.validate_target!(target)
