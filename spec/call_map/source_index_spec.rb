@@ -51,6 +51,14 @@ RSpec.describe CallMap::SourceIndex do
       expect(instance_method.kind).to eq(:instance_method)
       expect(class_method.line).not_to eq(instance_method.line)
     end
+
+    it "finds a class method defined with an explicit constant receiver" do
+      definition = index.find_class_method("LegacyReportService", "generate")
+
+      expect(definition).not_to be_nil
+      expect(definition.kind).to eq(:class_method)
+      expect(definition.qualified_name).to eq("LegacyReportService.generate")
+    end
   end
 
   describe "nested namespace" do

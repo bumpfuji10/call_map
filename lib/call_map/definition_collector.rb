@@ -48,15 +48,29 @@ module CallMap
       end
     end
 
-    # Called for every `def` — both `def foo` and `def self.foo`.
+    # Called for every `def` — `def foo`, `def self.foo`, and `def Foo.bar`.
     def visit_def_node(node)
-      # A receiver of `self` means `def self.foo` (a class method).
-      kind = node.receiver.is_a?(Prism::SelfNode) ? :class_method : :instance_method
-      @definitions << build_definition(kind, node.name.to_s, node, owner: current_namespace)
+      kind, owner = method_kind_and_owner(node.receiver)
+      @definitions << build_definition(kind, node.name.to_s, node, owner: owner)
       super
     end
 
     private
+
+    # Decide the (kind, owner) of a method from its `def` receiver.
+    # - no receiver        (`def foo`)        -> instance method on the current namespace
+    # - self receiver      (`def self.foo`)   -> class method on the current namespace
+    # - constant receiver  (`def Foo.bar`)    -> class method owned by that constant
+    def method_kind_and_owner(receiver)
+      case receiver
+      when nil
+        [:instance_method, current_namespace]
+      when Prism::SelfNode
+        [:class_method, current_namespace]
+      else
+        [:class_method, constant_name(receiver)]
+      end
+    end
 
     def build_definition(kind, name, node, owner: nil)
       Definition.new(kind: kind, name: name, owner: owner, path: @path, line: node.location.start_line)
