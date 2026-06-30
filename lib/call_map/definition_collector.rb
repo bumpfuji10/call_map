@@ -36,7 +36,7 @@ module CallMap
     def visit_class_node(node)
       within_namespace(constant_name(node.constant_path)) do
         @definitions << build_definition(:class, current_namespace, node)
-        super                # descend into the class body (its methods etc.)
+        super # descend into the class body (its methods etc.)
       end
     end
 
