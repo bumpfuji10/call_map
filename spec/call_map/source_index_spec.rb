@@ -59,6 +59,21 @@ RSpec.describe CallMap::SourceIndex do
       expect(definition.kind).to eq(:class_method)
       expect(definition.qualified_name).to eq("LegacyReportService.generate")
     end
+
+    it "finds a class method defined inside `class << self`" do
+      definition = index.find_class_method("OrderArchiveService", "execute")
+
+      expect(definition).not_to be_nil
+      expect(definition.kind).to eq(:class_method)
+      expect(definition.qualified_name).to eq("OrderArchiveService.execute")
+    end
+
+    it "still treats a regular instance method as instance method (not singleton)" do
+      definition = index.find_instance_method("OrderArchiveService", "archive")
+
+      expect(definition).not_to be_nil
+      expect(definition.kind).to eq(:instance_method)
+    end
   end
 
   describe "nested namespace" do
