@@ -7,6 +7,11 @@ AllCops:
     - "pkg/**/*"
     - "tmp/**/*"
     - "vendor/**/*"
+    - "spec/fixtures/**/*"
+
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*"
 
 Style/Documentation:
   Enabled: false

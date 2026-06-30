@@ -88,7 +88,8 @@ MVPでやらないもの:
 - RailsアプリケーションからBundler経由で使えるgemとして設計する。
 - 実装クラスは `lib/call_map/` 配下に小さく分ける。
 - Parser依存のAST処理は、境界を作って閉じ込める。
-- `parser` gem や Prism 固有のNode処理を、コードベース全体に散らさない。
+- Ruby parser は Prism を使う。
+- Prism 固有のNode処理を、コードベース全体に散らさない。
 - 設計上必要になるまでは、Rails runtime への依存を追加しない。
 
 ## テスト方針

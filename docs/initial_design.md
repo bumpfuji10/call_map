@@ -155,19 +155,20 @@ MVP では静的解析を使います。
 
 ## Parser の選択
 
-未決事項:
+方針:
 
-- `parser` gem
-- Prism
+- MVP では Prism を使う
 
-初期 leaning:
+理由:
 
-- プロトタイプでは `parser` gem が始めやすい
-- 既存知見と事例が多い
-- ただし parser 固有の AST 依存は狭い境界に閉じ込める
-- 将来的に Prism へ差し替えられる余地を残す
+- Ruby 3.3.0 で default gem として追加されている
+- Ruby 公式が production ready かつ Ripper の代替として利用可能と説明している
+- MVP で必要な class / module / def / method call / comment / source location を取得できる
+- Ruby 3.2+ 対応は維持できる。Ruby 3.2 では default gem ではないため、`prism` を gemspec dependency として明示する
 
-実装では、parser 固有の AST node 処理をコードベース全体へ散らさないようにします。
+実装では、Prism 固有の AST node 処理をコードベース全体へ散らさないようにします。
+
+Prism 依存は `SourceIndex` や parser adapter 周辺に閉じ込め、call graph 解決側は独自の definition / call DTO を参照する方針にします。
 
 ## MVP で対応する呼び出しパターン
 
@@ -515,15 +516,14 @@ OrdersController#destroy
 ## 未決事項
 
 1. public CLI は MVP から任意の class/method target をサポートするか
-2. 最初の parser は `parser` gem か Prism か
-3. ActiveRecord chain をどう表示するか
-4. model method の解決にどこまで労力をかけるか
-5. include された concern / module をどう解決するか
-6. `around_action` と `after_action` を MVP 近くで対応するか
-7. `self.execute -> new.execute` をどう表現するか
-8. `send(:foo)` のような symbol literal dynamic call を解決するか
-9. unresolved call の suffix は `[framework]`、`[unknown]`、なし、のどれにするか
-10. auth focus を first-class feature にするか、後続の formatter/filter にするか
+2. ActiveRecord chain をどう表示するか
+3. model method の解決にどこまで労力をかけるか
+4. include された concern / module をどう解決するか
+5. `around_action` と `after_action` を MVP 近くで対応するか
+6. `self.execute -> new.execute` をどう表現するか
+7. `send(:foo)` のような symbol literal dynamic call を解決するか
+8. unresolved call の suffix は `[framework]`、`[unknown]`、なし、のどれにするか
+9. auth focus を first-class feature にするか、後続の formatter/filter にするか
 
 ## 初期実装スケッチ
 
