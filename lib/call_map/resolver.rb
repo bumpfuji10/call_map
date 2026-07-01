@@ -23,7 +23,7 @@ module CallMap
       elsif call.receiver == "self"
         @index.find_class_method(context_owner, call.method_name)
       else
-        resolve_receiver(call)
+        resolve_receiver(call, context_owner)
       end
     end
 
@@ -34,14 +34,18 @@ module CallMap
     end
 
     # Resolve a call with an explicit receiver.
-    def resolve_receiver(call)
+    def resolve_receiver(call, context_owner)
       receiver = call.receiver
 
-      # `SomeClass.new` or `SomeClass.new(...)` chain → instance method
+      # `SomeClass.new(...)` chain → instance method on SomeClass
       if receiver.match?(/\A([A-Z][A-Za-z0-9:]*?)\.new\z/)
         owner = receiver.sub(/\.new\z/, "")
         return @index.find_instance_method(owner, call.method_name)
       end
+
+      # bare `new(...)` chain (implicit self.new inside a class method)
+      # → instance method on the context owner
+      return @index.find_instance_method(context_owner, call.method_name) if receiver == "new"
 
       # `SomeClass.method` → class method
       return @index.find_class_method(receiver, call.method_name) if receiver.match?(/\A[A-Z]/)
