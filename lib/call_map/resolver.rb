@@ -18,6 +18,8 @@ module CallMap
     # @param context_owner [String] the class/module the calling method belongs to
     # @return [Definition, nil]
     def resolve(call, context_owner:)
+      return nil if call.dynamic?
+
       if call.bare?
         resolve_bare(call, context_owner)
       elsif call.receiver == "self"

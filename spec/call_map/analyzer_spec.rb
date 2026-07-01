@@ -84,6 +84,18 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "dynamic calls remain as leaf nodes" do
+      let(:definition) { index.find_class_method("DynamicDispatchService", "execute") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "does not resolve send(:perform) to the instance method" do
+        send_node = tree.children.find { |c| c.method_call&.dynamic? }
+
+        expect(send_node).not_to be_nil
+        expect(send_node).not_to be_resolved
+      end
+    end
+
     context "depth limiting" do
       let(:definition) { index.find_instance_method("OrdersController", "destroy") }
 
