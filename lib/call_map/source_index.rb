@@ -42,7 +42,7 @@ module CallMap
     private
 
     def find_method(kind, owner, name)
-      definitions.find { |d| d.kind == kind && d.owner == owner && d.name == name.to_s }
+      definitions.reverse_each.find { |d| d.kind == kind && d.owner == owner && d.name == name.to_s }
     end
   end
 end

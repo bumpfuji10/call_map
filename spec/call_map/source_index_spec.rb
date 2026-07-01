@@ -114,6 +114,13 @@ RSpec.describe CallMap::SourceIndex do
       expect(definition.qualified_name).to eq("Admin::ReportsController#index")
     end
 
+    it "returns the last definition when a method is redefined (class reopening)" do
+      definition = index.find_instance_method("ReopenedService", "call")
+
+      expect(definition).not_to be_nil
+      expect(definition.line).to eq(10)
+    end
+
     it "does not nest an absolute class definition under the enclosing namespace" do
       definition = index.find_instance_method("TopLevelService", "run")
 
