@@ -35,7 +35,7 @@ module CallMap
 
     # Called when the traversal reaches a `class` definition.
     def visit_class_node(node)
-      within_namespace(constant_name(node.constant_path)) do
+      enter_namespace(node.constant_path) do
         @definitions << build_definition(:class, current_namespace, node)
         super # descend into the class body (its methods etc.)
       end
@@ -43,7 +43,7 @@ module CallMap
 
     # Called when the traversal reaches a `module` definition.
     def visit_module_node(node)
-      within_namespace(constant_name(node.constant_path)) do
+      enter_namespace(node.constant_path) do
         @definitions << build_definition(:module, current_namespace, node)
         super
       end
@@ -101,6 +101,15 @@ module CallMap
       Definition.new(kind: kind, name: name, owner: owner, path: @path, line: node.location.start_line)
     end
 
+    # Route to absolute or relative namespace handling based on the constant node.
+    def enter_namespace(constant_node, &)
+      if absolute_constant?(constant_node)
+        within_absolute_namespace(constant_name(constant_node), &)
+      else
+        within_namespace(constant_name(constant_node), &)
+      end
+    end
+
     # Push `name` while the block runs, then always pop it back off.
     # Entering a named class/module also pushes a nil singleton owner, so a
     # normal class nested inside `class << self` is not mistaken for a singleton.
@@ -111,6 +120,19 @@ module CallMap
     ensure
       @namespace.pop
       @singletons.pop
+    end
+
+    # For absolute constant paths (`class ::Foo::Bar`), temporarily replace
+    # the namespace stack with just the constant's own segments.
+    def within_absolute_namespace(name)
+      saved_namespace = @namespace
+      saved_singletons = @singletons
+      @namespace = [name]
+      @singletons = [nil]
+      yield
+    ensure
+      @namespace = saved_namespace
+      @singletons = saved_singletons
     end
 
     # Track the class-method owner implied by the current singleton scope.

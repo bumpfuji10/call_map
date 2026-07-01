@@ -113,5 +113,13 @@ RSpec.describe CallMap::SourceIndex do
       expect(definition).not_to be_nil
       expect(definition.qualified_name).to eq("Admin::ReportsController#index")
     end
+
+    it "does not nest an absolute class definition under the enclosing namespace" do
+      definition = index.find_instance_method("TopLevelService", "run")
+
+      expect(definition).not_to be_nil
+      expect(definition.qualified_name).to eq("TopLevelService#run")
+      expect(definition.owner).to eq("TopLevelService")
+    end
   end
 end
