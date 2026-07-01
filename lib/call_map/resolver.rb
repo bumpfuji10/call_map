@@ -20,9 +20,7 @@ module CallMap
     def resolve(call, context_owner:, context_kind: :instance_method)
       return nil if call.dynamic?
 
-      if call.bare?
-        resolve_bare(call, context_owner, context_kind)
-      elsif call.receiver == "self"
+      if call.bare? || call.receiver == "self"
         resolve_bare(call, context_owner, context_kind)
       else
         resolve_receiver(call, context_owner)
@@ -63,13 +61,14 @@ module CallMap
 
     def find_with_namespace_fallback(kind, owner, method_name, context_owner)
       finder = kind == :class_method ? :find_class_method : :find_instance_method
-      result = @index.public_send(finder, owner, method_name)
-      return result if result
-
       namespace = namespace_of(context_owner)
-      return nil unless namespace
 
-      @index.public_send(finder, "#{namespace}::#{owner}", method_name)
+      if namespace
+        result = @index.public_send(finder, "#{namespace}::#{owner}", method_name)
+        return result if result
+      end
+
+      @index.public_send(finder, owner, method_name)
     end
 
     def namespace_of(owner)
