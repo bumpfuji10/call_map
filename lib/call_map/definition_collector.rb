@@ -63,7 +63,8 @@ module CallMap
       # info is nil when the method belongs to an unresolvable receiver
       # (e.g. `class << obj`); such defs are skipped rather than mis-registered.
       @definitions << build_definition(info[:kind], node.name.to_s, node, owner: info[:owner]) if info
-      super
+      # No super — do not recurse into method bodies. Nested defs inside a
+      # method are runtime-only and should not appear in the static index.
     end
 
     private
