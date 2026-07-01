@@ -20,7 +20,7 @@ module CallMap
     # @param definition [Definition] the starting method
     # @param depth [Integer] maximum recursion depth (0 = no children)
     # @return [CallNode]
-    def build_call_tree(definition, depth: 10)
+    def build_call_tree(definition, depth: 3)
       visited = Set.new
       build_node(definition, nil, depth, visited)
     end
