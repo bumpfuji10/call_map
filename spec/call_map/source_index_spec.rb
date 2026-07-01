@@ -93,6 +93,11 @@ RSpec.describe CallMap::SourceIndex do
       expect(index.find_instance_method("WidgetBuilder", "helper")).to be_nil
     end
 
+    it "does not register methods with a non-constant receiver (`def obj.foo`)" do
+      expect(index.find_class_method("WidgetBuilder", "configure")).to be_nil
+      expect(index.find_instance_method("WidgetBuilder", "configure")).to be_nil
+    end
+
     it "does not double-prefix an absolute constant receiver (`class << ::Foo::Bar`)" do
       definition = index.find_class_method("Reports::Generator", "export")
 

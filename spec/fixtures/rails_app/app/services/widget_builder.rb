@@ -8,4 +8,9 @@ class WidgetBuilder
       :noop
     end
   end
+
+  # `def obj.method` with a non-constant receiver cannot be resolved statically.
+  def @registry.configure
+    :configure
+  end
 end

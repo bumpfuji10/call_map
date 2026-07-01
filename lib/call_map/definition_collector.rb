@@ -82,7 +82,7 @@ module CallMap
         singleton_scope_kind_and_owner
       when Prism::SelfNode
         { kind: :class_method, owner: current_namespace }
-      else
+      when Prism::ConstantReadNode, Prism::ConstantPathNode
         { kind: :class_method, owner: qualified_constant(receiver) }
       end
     end
