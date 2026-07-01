@@ -23,7 +23,7 @@ module CallMap
       if call.bare?
         resolve_bare(call, context_owner, context_kind)
       elsif call.receiver == "self"
-        @index.find_class_method(context_owner, call.method_name)
+        resolve_bare(call, context_owner, context_kind)
       else
         resolve_receiver(call, context_owner)
       end

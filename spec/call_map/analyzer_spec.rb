@@ -128,6 +128,19 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "self.helper in instance method resolves to instance method" do
+      let(:definition) { index.find_instance_method("SelfCallService", "run") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "resolves self.helper to the instance method, not the class method" do
+        child = tree.children.find { |c| c.method_call&.method_name == "helper" }
+
+        expect(child).not_to be_nil
+        expect(child).to be_resolved
+        expect(child.definition.kind).to eq(:instance_method)
+      end
+    end
+
     context "namespace-relative constant resolution" do
       let(:definition) { index.find_instance_method("Reports::ReportRunner", "run") }
       let(:tree) { analyzer.build_call_tree(definition) }
