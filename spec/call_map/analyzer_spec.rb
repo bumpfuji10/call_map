@@ -154,6 +154,19 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "absolute constant skips namespace fallback" do
+      let(:definition) { index.find_instance_method("Reports::AbsoluteCaller", "run") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "resolves ::TopLevelService.execute without namespace prefix" do
+        child = tree.children.find { |c| c.method_call&.method_name == "execute" }
+
+        expect(child).not_to be_nil
+        expect(child.method_call).to be_absolute
+        expect(child).not_to be_resolved
+      end
+    end
+
     context "depth limiting" do
       let(:definition) { index.find_instance_method("OrdersController", "destroy") }
 

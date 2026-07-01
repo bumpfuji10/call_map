@@ -10,17 +10,23 @@ module CallMap
     # @param method_name [String] name of the called method
     # @param line [Integer] line number of the call site
     # @param dynamic [Boolean] true for send/public_send style calls
-    def initialize(receiver:, method_name:, line:, dynamic: false)
+    # @param absolute [Boolean] true for ::Foo style absolute constant paths
+    def initialize(receiver:, method_name:, line:, dynamic: false, absolute: false)
       @receiver = receiver
       @method_name = method_name
       @line = line
       @dynamic = dynamic
+      @absolute = absolute
     end
 
     attr_reader :receiver, :method_name, :line
 
     def dynamic?
       @dynamic
+    end
+
+    def absolute?
+      @absolute
     end
 
     def bare?

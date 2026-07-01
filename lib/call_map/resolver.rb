@@ -44,7 +44,7 @@ module CallMap
       # `SomeClass.new(...)` chain → instance method on SomeClass
       if receiver.match?(/\A([A-Z][A-Za-z0-9:]*?)\.new\z/)
         owner = receiver.sub(/\.new\z/, "")
-        return find_with_namespace_fallback(:instance_method, owner, call.method_name, context_owner)
+        return resolve_constant(:instance_method, owner, call, context_owner)
       end
 
       # bare `new(...)` chain (implicit self.new inside a class method)
@@ -52,11 +52,18 @@ module CallMap
       return @index.find_instance_method(context_owner, call.method_name) if receiver == "new"
 
       # `SomeClass.method` → class method
-      if receiver.match?(/\A[A-Z]/)
-        return find_with_namespace_fallback(:class_method, receiver, call.method_name, context_owner)
-      end
+      return resolve_constant(:class_method, receiver, call, context_owner) if receiver.match?(/\A[A-Z]/)
 
       nil
+    end
+
+    def resolve_constant(kind, owner, call, context_owner)
+      if call.absolute?
+        finder = kind == :class_method ? :find_class_method : :find_instance_method
+        @index.public_send(finder, owner, call.method_name)
+      else
+        find_with_namespace_fallback(kind, owner, call.method_name, context_owner)
+      end
     end
 
     def find_with_namespace_fallback(kind, owner, method_name, context_owner)
