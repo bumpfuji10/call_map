@@ -128,6 +128,19 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "namespace-relative constant resolution" do
+      let(:definition) { index.find_instance_method("Reports::ReportRunner", "run") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "resolves Generator.build to Reports::Generator.build" do
+        child = tree.children.find { |c| c.method_call&.method_name == "build" }
+
+        expect(child).not_to be_nil
+        expect(child).to be_resolved
+        expect(child.definition.owner).to eq("Reports::Generator")
+      end
+    end
+
     context "depth limiting" do
       let(:definition) { index.find_instance_method("OrdersController", "destroy") }
 
