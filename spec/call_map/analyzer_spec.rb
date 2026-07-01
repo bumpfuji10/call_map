@@ -109,6 +109,25 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "shared method across branches expands in both" do
+      let(:definition) { index.find_instance_method("SharedCallService", "entry") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "expands shared_helper under both branch_a and branch_b" do
+        branch_a = tree.children.find { |c| c.method_call&.method_name == "branch_a" }
+        branch_b = tree.children.find { |c| c.method_call&.method_name == "branch_b" }
+
+        expect(branch_a.children.map { |c| c.method_call&.method_name }).to include("shared_helper")
+        expect(branch_b.children.map { |c| c.method_call&.method_name }).to include("shared_helper")
+
+        helper_a = branch_a.children.find { |c| c.method_call&.method_name == "shared_helper" }
+        helper_b = branch_b.children.find { |c| c.method_call&.method_name == "shared_helper" }
+
+        expect(helper_a).to be_resolved
+        expect(helper_b).to be_resolved
+      end
+    end
+
     context "depth limiting" do
       let(:definition) { index.find_instance_method("OrdersController", "destroy") }
 

@@ -28,8 +28,9 @@ module CallMap
     private
 
     def build_node(definition, method_call, remaining_depth, visited)
-      children = if remaining_depth.positive? && definition.method? && visited.add?(node_key(definition))
-                   build_children(definition, remaining_depth, visited)
+      key = node_key(definition)
+      children = if remaining_depth.positive? && definition.method? && !visited.include?(key)
+                   build_children(definition, remaining_depth, visited | [key])
                  else
                    []
                  end
