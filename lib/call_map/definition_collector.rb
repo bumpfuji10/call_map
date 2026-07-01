@@ -166,9 +166,11 @@ module CallMap
     # a relative constant is simply prefixed with the enclosing namespace.
     def qualified_constant(node)
       name = constant_name(node)
-      return name if name.nil? || current_namespace.empty? || absolute_constant?(node)
+      ns = current_namespace
+      return name if name.nil? || ns.empty? || absolute_constant?(node)
+      return ns if name == ns || ns.end_with?("::#{name}")
 
-      "#{current_namespace}::#{name}"
+      "#{ns}::#{name}"
     end
 
     # A ConstantPathNode whose root parent is nil represents an absolute

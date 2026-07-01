@@ -98,6 +98,13 @@ RSpec.describe CallMap::SourceIndex do
       expect(index.find_instance_method("WidgetBuilder", "configure")).to be_nil
     end
 
+    it "does not double-prefix a same-name constant receiver (`def Foo.bar` inside class Foo)" do
+      definition = index.find_class_method("OrderDeleteService", "cleanup")
+
+      expect(definition).not_to be_nil
+      expect(definition.qualified_name).to eq("OrderDeleteService.cleanup")
+    end
+
     it "does not double-prefix an absolute constant receiver (`class << ::Foo::Bar`)" do
       definition = index.find_class_method("Reports::Generator", "export")
 
