@@ -7,6 +7,16 @@ AllCops:
     - "pkg/**/*"
     - "tmp/**/*"
     - "vendor/**/*"
+    - "spec/fixtures/**/*"
+
+# RSpec の describe ブロックは長くなりがちなので spec では無効化する。
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*"
+
+Metrics/ClassLength:
+  Exclude:
+    - "lib/call_map/definition_collector.rb"
 
 Style/Documentation:
   Enabled: false

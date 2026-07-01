@@ -155,19 +155,16 @@ MVP では静的解析を使います。
 
 ## Parser の選択
 
-未決事項:
+**決定: Prism を採用** (issue #4 で確定)
 
-- `parser` gem
-- Prism
+採用理由:
 
-初期 leaning:
+- Ruby 3.3.0 以降の default gem であり、CRuby 公式パーサーとして長期サポートが見込める
+- Visitor パターン (`Prism::Visitor`) が標準提供されており、AST 走査が簡潔に書ける
+- `parser` gem は外部依存かつメンテナンス体制が Prism に移行しつつある
 
-- プロトタイプでは `parser` gem が始めやすい
-- 既存知見と事例が多い
-- ただし parser 固有の AST 依存は狭い境界に閉じ込める
-- 将来的に Prism へ差し替えられる余地を残す
-
-実装では、parser 固有の AST node 処理をコードベース全体へ散らさないようにします。
+Prism 固有の AST node 処理は `DefinitionCollector` クラスに閉じ込めており、
+コードベースの他の部分は `Definition` value object のみに依存します。
 
 ## MVP で対応する呼び出しパターン
 
@@ -515,7 +512,7 @@ OrdersController#destroy
 ## 未決事項
 
 1. public CLI は MVP から任意の class/method target をサポートするか
-2. 最初の parser は `parser` gem か Prism か
+2. ~~最初の parser は `parser` gem か Prism か~~ → **Prism に決定済み**
 3. ActiveRecord chain をどう表示するか
 4. model method の解決にどこまで労力をかけるか
 5. include された concern / module をどう解決するか
