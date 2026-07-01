@@ -128,6 +128,13 @@ RSpec.describe CallMap::SourceIndex do
       expect(definition.line).to eq(10)
     end
 
+    it "does not double-qualify a class name that already includes the namespace" do
+      definition = index.find_instance_method("Admin::DashboardController", "show")
+
+      expect(definition).not_to be_nil
+      expect(definition.qualified_name).to eq("Admin::DashboardController#show")
+    end
+
     it "does not nest an absolute class definition under the enclosing namespace" do
       definition = index.find_instance_method("TopLevelService", "run")
 

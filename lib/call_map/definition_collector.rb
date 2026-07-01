@@ -104,11 +104,23 @@ module CallMap
 
     # Route to absolute or relative namespace handling based on the constant node.
     def enter_namespace(constant_node, &)
-      if absolute_constant?(constant_node)
-        within_absolute_namespace(constant_name(constant_node), &)
+      name = constant_name(constant_node)
+      ns = current_namespace
+
+      if absolute_constant?(constant_node) || already_qualified?(name, ns)
+        within_absolute_namespace(name, &)
       else
-        within_namespace(constant_name(constant_node), &)
+        within_namespace(name, &)
       end
+    end
+
+    # A constant path like `Admin::ReportsController` inside `module Admin`
+    # already contains the enclosing namespace — pushing it would produce
+    # `Admin::Admin::ReportsController`.
+    def already_qualified?(name, namespace)
+      return false if namespace.empty? || name.nil?
+
+      name == namespace || name.start_with?("#{namespace}::")
     end
 
     # Push `name` while the block runs, then always pop it back off.
