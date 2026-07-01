@@ -30,12 +30,13 @@ module CallMap
 
     def visit_call_node(node)
       @calls << build_call(node)
-      # Do not recurse into the receiver — it is already captured in the
-      # receiver label. Only walk arguments and block so that chained calls
-      # like `OrderDeleteService.new(order).execute` produce one entry,
-      # not one per link in the chain.
+      # Walk arguments and block, but not the receiver itself (it is already
+      # captured in the receiver label). However, walk the receiver chain's
+      # arguments/blocks so that calls like `SomeClass.new(build_order).execute`
+      # still extract `build_order`.
       node.arguments&.accept(self)
       node.block&.accept(self)
+      walk_receiver_args(node.receiver)
     end
 
     # Do not recurse into nested def bodies — they are not executed
@@ -43,6 +44,16 @@ module CallMap
     def visit_def_node(_node); end
 
     private
+
+    # Walk the receiver chain's arguments/blocks without registering the
+    # receiver CallNodes themselves as separate calls.
+    def walk_receiver_args(receiver)
+      return unless receiver.is_a?(Prism::CallNode)
+
+      receiver.arguments&.accept(self)
+      receiver.block&.accept(self)
+      walk_receiver_args(receiver.receiver)
+    end
 
     def build_call(node)
       receiver_str = receiver_label(node.receiver)

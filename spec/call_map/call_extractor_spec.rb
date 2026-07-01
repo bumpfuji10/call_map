@@ -98,7 +98,7 @@ RSpec.describe CallMap::CallExtractor do
         <<~RUBY
           class Foo
             def bar
-              OrderDeleteService.new(order).execute
+              OrderDeleteService.new(build_order).execute
             end
           end
         RUBY
@@ -115,6 +115,13 @@ RSpec.describe CallMap::CallExtractor do
 
       it "does not extract the receiver-side call as a separate entry" do
         expect(calls.map(&:method_name)).not_to include("new")
+      end
+
+      it "extracts calls from the receiver chain's arguments" do
+        call = calls.find { |c| c.method_name == "build_order" }
+
+        expect(call).not_to be_nil
+        expect(call).to be_bare
       end
     end
 
