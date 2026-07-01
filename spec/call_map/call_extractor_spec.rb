@@ -134,6 +134,27 @@ RSpec.describe CallMap::CallExtractor do
       end
     end
 
+    context "with a nested def inside a method body" do
+      let(:source) do
+        <<~RUBY
+          class Foo
+            def outer
+              setup
+              def inner
+                secret_call
+              end
+            end
+          end
+        RUBY
+      end
+      let(:calls) { described_class.extract(def_node_for(source, "outer")) }
+
+      it "extracts calls from the outer method but not from the nested def" do
+        expect(calls.map(&:method_name)).to include("setup")
+        expect(calls.map(&:method_name)).not_to include("secret_call")
+      end
+    end
+
     context "with an empty method body" do
       let(:source) do
         <<~RUBY

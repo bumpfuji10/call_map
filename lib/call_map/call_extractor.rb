@@ -33,6 +33,10 @@ module CallMap
       super
     end
 
+    # Do not recurse into nested def bodies — they are not executed
+    # as part of the enclosing method's call path.
+    def visit_def_node(_node); end
+
     private
 
     def build_call(node)
