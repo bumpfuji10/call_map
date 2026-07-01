@@ -1,9 +1,16 @@
 # frozen_string_literal: true
 
 class OrdersController < ApplicationController
+  before_action :set_order, only: %i[show destroy]
+
+  def show
+    authorize @order, policy_class: OrderPolicy
+  end
+
   def destroy
-    set_order
+    authorize @order, policy_class: OrderPolicy
     OrderDeleteService.execute(order: @order)
+    OrderNotifier.notify_deletion(order: @order)
   end
 
   private

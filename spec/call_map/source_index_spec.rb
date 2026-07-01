@@ -19,7 +19,7 @@ RSpec.describe CallMap::SourceIndex do
       expect(definition.qualified_name).to eq("OrdersController#destroy")
       expect(definition.owner).to eq("OrdersController")
       expect(definition.path).to end_with("app/controllers/orders_controller.rb")
-      expect(definition.line).to eq(4)
+      expect(definition.line).to eq(10)
     end
 
     it "finds a private method as well" do
