@@ -30,7 +30,12 @@ module CallMap
 
     def visit_call_node(node)
       @calls << build_call(node)
-      super
+      # Do not recurse into the receiver — it is already captured in the
+      # receiver label. Only walk arguments and block so that chained calls
+      # like `OrderDeleteService.new(order).execute` produce one entry,
+      # not one per link in the chain.
+      node.arguments&.accept(self)
+      node.block&.accept(self)
     end
 
     # Do not recurse into nested def bodies — they are not executed

@@ -112,6 +112,10 @@ RSpec.describe CallMap::CallExtractor do
         expect(call.receiver).to eq("OrderDeleteService.new")
         expect(call.label).to eq("OrderDeleteService.new.execute")
       end
+
+      it "does not extract the receiver-side call as a separate entry" do
+        expect(calls.map(&:method_name)).not_to include("new")
+      end
     end
 
     context "with instance variable receiver" do
