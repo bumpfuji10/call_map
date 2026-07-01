@@ -43,7 +43,7 @@ module CallMap
     end
 
     def resolve_and_build(call, parent_definition, remaining_depth, visited)
-      resolved = @resolver.resolve(call, context_owner: parent_definition.owner)
+      resolved = @resolver.resolve(call, context_owner: parent_definition.owner, context_kind: parent_definition.kind)
 
       if resolved
         build_node(resolved, call, remaining_depth - 1, visited)

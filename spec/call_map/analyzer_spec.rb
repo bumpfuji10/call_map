@@ -84,6 +84,19 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "bare calls inside a class method resolve to class methods" do
+      let(:definition) { index.find_class_method("ClassMethodCallerService", "execute") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "resolves validate to the class method, not the instance method" do
+        child = tree.children.find { |c| c.method_call&.method_name == "validate" }
+
+        expect(child).not_to be_nil
+        expect(child).to be_resolved
+        expect(child.definition.kind).to eq(:class_method)
+      end
+    end
+
     context "dynamic calls remain as leaf nodes" do
       let(:definition) { index.find_class_method("DynamicDispatchService", "execute") }
       let(:tree) { analyzer.build_call_tree(definition) }

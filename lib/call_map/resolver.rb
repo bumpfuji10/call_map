@@ -17,11 +17,11 @@ module CallMap
     # @param call [MethodCall] the call to resolve
     # @param context_owner [String] the class/module the calling method belongs to
     # @return [Definition, nil]
-    def resolve(call, context_owner:)
+    def resolve(call, context_owner:, context_kind: :instance_method)
       return nil if call.dynamic?
 
       if call.bare?
-        resolve_bare(call, context_owner)
+        resolve_bare(call, context_owner, context_kind)
       elsif call.receiver == "self"
         @index.find_class_method(context_owner, call.method_name)
       else
@@ -31,8 +31,12 @@ module CallMap
 
     private
 
-    def resolve_bare(call, context_owner)
-      @index.find_instance_method(context_owner, call.method_name)
+    def resolve_bare(call, context_owner, context_kind)
+      if context_kind == :class_method
+        @index.find_class_method(context_owner, call.method_name)
+      else
+        @index.find_instance_method(context_owner, call.method_name)
+      end
     end
 
     # Resolve a call with an explicit receiver.
