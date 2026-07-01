@@ -22,7 +22,7 @@ module CallMap
       super()                # Prism::Visitor#initialize takes no args
       @path = path
       @namespace = []        # stack of enclosing class/module names
-      @singletons = []       # per-scope flag: are we inside `class << self`?
+      @singletons = []       # per-scope singleton owner (nil / String / :unresolved)
       @definitions = []
     end
 
@@ -49,38 +49,51 @@ module CallMap
       end
     end
 
-    # Called for `class << self` (and `class << obj`).
+    # Called for `class << self`, `class << SomeConstant`, and `class << obj`.
     def visit_singleton_class_node(node)
-      # Only `class << self` reliably maps to the enclosing class; treat its
-      # bodyless `def`s as class methods. `class << obj` can't be resolved
-      # statically, so don't claim those as class methods.
-      within_singleton(node.expression.is_a?(Prism::SelfNode)) do
+      within_singleton(singleton_owner(node.expression)) do
         super
       end
     end
 
     # Called for every `def` — `def foo`, `def self.foo`, and `def Foo.bar`.
     def visit_def_node(node)
-      kind, owner = method_kind_and_owner(node.receiver)
-      @definitions << build_definition(kind, node.name.to_s, node, owner: owner)
+      info = method_kind_and_owner(node.receiver)
+      # info is nil when the method belongs to an unresolvable receiver
+      # (e.g. `class << obj`); such defs are skipped rather than mis-registered.
+      @definitions << build_definition(info[:kind], node.name.to_s, node, owner: info[:owner]) if info
       super
     end
 
     private
 
     # Decide the (kind, owner) of a method from its `def` receiver.
-    # - no receiver        (`def foo`)        -> instance method, unless inside
-    #                                            `class << self`, where it is a class method
-    # - self receiver      (`def self.foo`)   -> class method on the current namespace
-    # - constant receiver  (`def Foo.bar`)    -> class method owned by that constant
+    # Returns nil to signal "do not register this def".
+    #
+    # - no receiver (`def foo`): depends on the enclosing scope
+    #     - inside `class << self` / `class << Const`  -> class method on that owner
+    #     - inside `class << obj` (unresolvable)        -> nil (skip)
+    #     - otherwise                                    -> instance method on the current namespace
+    # - self receiver     (`def self.foo`) -> class method on the current namespace
+    # - constant receiver (`def Foo.bar`)  -> class method owned by that constant
     def method_kind_and_owner(receiver)
       case receiver
       when nil
-        [singleton_self? ? :class_method : :instance_method, current_namespace]
+        singleton_scope_kind_and_owner
       when Prism::SelfNode
-        [:class_method, current_namespace]
+        { kind: :class_method, owner: current_namespace }
       else
-        [:class_method, constant_name(receiver)]
+        { kind: :class_method, owner: qualified_constant(receiver) }
+      end
+    end
+
+    # Interpret the innermost singleton scope for a bodyless `def`.
+    def singleton_scope_kind_and_owner
+      owner = current_singleton_owner
+      case owner
+      when nil then { kind: :instance_method, owner: current_namespace }
+      when :unresolved then nil
+      else { kind: :class_method, owner: owner }
       end
     end
 
@@ -89,27 +102,50 @@ module CallMap
     end
 
     # Push `name` while the block runs, then always pop it back off.
-    # Entering a named class/module also resets the singleton flag, so a normal
-    # class nested inside `class << self` is not mistaken for a singleton scope.
+    # Entering a named class/module also pushes a nil singleton owner, so a
+    # normal class nested inside `class << self` is not mistaken for a singleton.
     def within_namespace(name)
       @namespace.push(name)
-      @singletons.push(false)
+      @singletons.push(nil)
       yield
     ensure
       @namespace.pop
       @singletons.pop
     end
 
-    # Track whether the current scope is a `class << self` body.
-    def within_singleton(is_self)
-      @singletons.push(is_self)
+    # Track the class-method owner implied by the current singleton scope.
+    # owner is a String ("class << Foo"), or :unresolved ("class << obj").
+    def within_singleton(owner)
+      @singletons.push(owner)
       yield
     ensure
       @singletons.pop
     end
 
-    def singleton_self?
-      @singletons.last == true
+    def current_singleton_owner
+      @singletons.last
+    end
+
+    # Resolve the owner for a `class << expression` header.
+    # - self             -> the enclosing class/module
+    # - a constant        -> that (namespace-qualified) constant
+    # - anything else     -> :unresolved (a runtime object we can't name statically)
+    def singleton_owner(expression)
+      case expression
+      when Prism::SelfNode then current_namespace
+      when Prism::ConstantReadNode, Prism::ConstantPathNode then qualified_constant(expression)
+      else :unresolved
+      end
+    end
+
+    # Best-effort qualification of a constant receiver with the current
+    # namespace. Full Ruby constant resolution is out of scope for the MVP;
+    # a relative constant is simply prefixed with the enclosing namespace.
+    def qualified_constant(node)
+      name = constant_name(node)
+      return name if name.nil? || current_namespace.empty?
+
+      "#{current_namespace}::#{name}"
     end
 
     def current_namespace

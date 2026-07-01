@@ -74,6 +74,24 @@ RSpec.describe CallMap::SourceIndex do
       expect(definition).not_to be_nil
       expect(definition.kind).to eq(:instance_method)
     end
+
+    it "qualifies a constant-receiver class method with the enclosing namespace" do
+      definition = index.find_class_method("Reports::Generator", "reset")
+
+      expect(definition).not_to be_nil
+      expect(definition.qualified_name).to eq("Reports::Generator.reset")
+    end
+
+    it "finds a class method defined inside `class << Constant` within a namespace" do
+      definition = index.find_class_method("Reports::Generator", "build")
+
+      expect(definition).not_to be_nil
+      expect(definition.qualified_name).to eq("Reports::Generator.build")
+    end
+
+    it "does not register methods from an unresolvable `class << obj` as instance methods" do
+      expect(index.find_instance_method("WidgetBuilder", "helper")).to be_nil
+    end
   end
 
   describe "nested namespace" do
