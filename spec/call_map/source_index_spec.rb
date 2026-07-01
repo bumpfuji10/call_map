@@ -92,6 +92,13 @@ RSpec.describe CallMap::SourceIndex do
     it "does not register methods from an unresolvable `class << obj` as instance methods" do
       expect(index.find_instance_method("WidgetBuilder", "helper")).to be_nil
     end
+
+    it "does not double-prefix an absolute constant receiver (`class << ::Foo::Bar`)" do
+      definition = index.find_class_method("Reports::Generator", "export")
+
+      expect(definition).not_to be_nil
+      expect(definition.qualified_name).to eq("Reports::Generator.export")
+    end
   end
 
   describe "nested namespace" do

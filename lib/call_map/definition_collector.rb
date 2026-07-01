@@ -143,9 +143,20 @@ module CallMap
     # a relative constant is simply prefixed with the enclosing namespace.
     def qualified_constant(node)
       name = constant_name(node)
-      return name if name.nil? || current_namespace.empty?
+      return name if name.nil? || current_namespace.empty? || absolute_constant?(node)
 
       "#{current_namespace}::#{name}"
+    end
+
+    # A ConstantPathNode whose root parent is nil represents an absolute
+    # constant path (e.g. `::Reports::Generator`). Such constants should
+    # not be prefixed with the enclosing namespace.
+    def absolute_constant?(node)
+      return false unless node.is_a?(Prism::ConstantPathNode)
+
+      root = node
+      root = root.parent while root.parent.is_a?(Prism::ConstantPathNode)
+      root.parent.nil?
     end
 
     def current_namespace

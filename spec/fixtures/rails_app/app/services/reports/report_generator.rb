@@ -15,4 +15,11 @@ module Reports
       new
     end
   end
+
+  # Absolute constant path — should NOT be double-prefixed.
+  class << ::Reports::Generator
+    def export
+      :export
+    end
+  end
 end
