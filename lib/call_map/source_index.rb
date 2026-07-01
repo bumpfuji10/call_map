@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "definition_collector"
+
 module CallMap
   # Indexes class / module / method definitions found under a directory.
   #

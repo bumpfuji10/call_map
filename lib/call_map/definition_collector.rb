@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "prism"
+require_relative "definition"
 
 module CallMap
   # The single boundary that touches Prism.
