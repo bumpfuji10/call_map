@@ -58,7 +58,14 @@ module CallMap
 
     def self.build_qualified_name(node, namespace)
       name = const_path_to_string(node.constant_path)
-      namespace.empty? ? name : "#{namespace.join('::')}::#{name}"
+      return name if namespace.empty? || already_qualified?(name, namespace)
+
+      "#{namespace.join('::')}::#{name}"
+    end
+
+    def self.already_qualified?(name, namespace)
+      prefix = namespace.join("::")
+      name == prefix || name.start_with?("#{prefix}::")
     end
 
     def self.const_path_to_string(const)
@@ -82,7 +89,8 @@ module CallMap
 
     private_class_method :find_class_body, :find_class_node, :class_or_module?,
                          :search_within_class_or_module, :search_children,
-                         :build_qualified_name, :const_path_to_string, :full_constant_path
+                         :build_qualified_name, :already_qualified?,
+                         :const_path_to_string, :full_constant_path
 
     def initialize(action_name)
       super()

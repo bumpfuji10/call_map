@@ -168,6 +168,18 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "compact-style class with before_action" do
+      let(:definition) { index.find_instance_method("Admin::DashboardController", "show") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "includes before_action from compact-style class without double-prefixing" do
+        callback = tree.children.find { |c| c.method_call&.method_name == "require_admin" }
+
+        expect(callback).not_to be_nil
+        expect(callback).to be_resolved
+      end
+    end
+
     context "namespace-relative constant resolution" do
       let(:definition) { index.find_instance_method("Reports::ReportRunner", "run") }
       let(:tree) { analyzer.build_call_tree(definition) }
