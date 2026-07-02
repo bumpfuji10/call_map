@@ -194,6 +194,32 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "callback resolution follows the action's inheritance order" do
+      let(:definition) { index.find_instance_method("Admin::OrdersController", "show") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "resolves a child-declared callback whose method lives on the parent" do
+        audit = tree.children.find { |c| c.method_call&.method_name == "audit_access" }
+
+        expect(audit).to be_resolved
+        expect(audit.definition.owner).to eq("Admin::ApplicationController")
+      end
+
+      it "resolves a parent-declared callback overridden by the child to the override" do
+        guard = tree.children.find { |c| c.method_call&.method_name == "admin_guard" }
+
+        expect(guard).to be_resolved
+        expect(guard.definition.owner).to eq("Admin::OrdersController")
+      end
+
+      it "inherits from the same-namespace parent, not the top-level ApplicationController" do
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).to include("admin_guard")
+        expect(callback_names).not_to include("authenticate_user!")
+      end
+    end
+
     context "reopened class callbacks are aggregated" do
       let(:definition) { index.find_instance_method("ReopenedController", "show") }
       let(:tree) { analyzer.build_call_tree(definition) }

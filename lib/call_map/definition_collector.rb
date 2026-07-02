@@ -100,7 +100,7 @@ module CallMap
     end
 
     def build_definition(kind, name, node, owner: nil, superclass: nil)
-      nesting = %i[instance_method class_method].include?(kind) ? lexical_nesting : nil
+      nesting = %i[instance_method class_method].include?(kind) ? lexical_nesting : outer_nesting
       Definition.new(kind: kind, name: name, owner: owner, path: @path, line: node.location.start_line,
                      lexical_nesting: nesting, superclass: superclass)
     end
@@ -114,6 +114,15 @@ module CallMap
       return nil if @namespace.empty?
 
       @namespace.dup
+    end
+
+    # For class/module definitions: the scope stack OUTSIDE the definition
+    # itself. A superclass expression (`class Foo < Bar`) is evaluated in
+    # this outer scope, not inside the class body.
+    def outer_nesting
+      return nil if @namespace.size <= 1
+
+      @namespace[0..-2]
     end
 
     # Route to absolute or relative namespace handling based on the constant node.

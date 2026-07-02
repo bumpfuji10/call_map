@@ -23,6 +23,7 @@ Metrics/ClassLength:
   Exclude:
     - "lib/call_map/definition_collector.rb"
     - "lib/call_map/callback_extractor.rb"
+    - "lib/call_map/analyzer.rb"
 
 Style/Documentation:
   Enabled: false

@@ -48,13 +48,22 @@ module CallMap
       callback_nodes + call_nodes
     end
 
-    # Callbacks resolve against the class that declared them, so an inherited
-    # `before_action :authenticate_user!` finds the parent's method.
+    # Callback filter symbols are invoked via normal method lookup on the
+    # controller instance, so resolve against the action's class first and
+    # then up its superclass chain (a child override wins over the parent's).
     def build_callback_nodes(definition, remaining_depth, visited)
-      extract_callbacks(definition).map do |call, declaring_owner|
-        resolved = @resolver.resolve(call, context_owner: declaring_owner)
+      extract_callbacks(definition).map do |call|
+        resolved = resolve_callback(call, definition.owner)
         build_resolved_node(resolved, call, remaining_depth, visited)
       end
+    end
+
+    def resolve_callback(call, action_owner)
+      ancestor_chain(action_owner).each do |owner|
+        found = @resolver.resolve(call, context_owner: owner)
+        return found if found
+      end
+      nil
     end
 
     def resolve_and_build(call, parent_definition, remaining_depth, visited)
@@ -73,13 +82,13 @@ module CallMap
       end
     end
 
-    # Collect [callback, declaring_owner] pairs for the action, walking the
-    # superclass chain so that parent-controller callbacks run first (as Rails does).
+    # Collect callbacks for the action, walking the superclass chain so that
+    # parent-controller callbacks run first (as Rails does).
     def extract_callbacks(definition)
       return [] unless definition.kind == :instance_method
 
       ancestor_chain(definition.owner).reverse.flat_map do |owner|
-        callbacks_declared_on(owner, definition.name).map { |call| [call, owner] }
+        callbacks_declared_on(owner, definition.name)
       end
     end
 
@@ -102,19 +111,21 @@ module CallMap
     end
 
     def superclass_of(owner)
-      superclass = @index.find_class_definitions(owner).filter_map(&:superclass).first
-      return nil unless superclass
+      definition = @index.find_class_definitions(owner).find(&:superclass)
+      return nil unless definition
 
-      resolve_class_name(superclass, owner)
+      resolve_class_name(definition.superclass, definition.lexical_nesting)
     end
 
-    # Best-effort resolution of a superclass constant written relative to the
-    # subclass: try the name as-is, then prefixed with the subclass namespace.
-    def resolve_class_name(name, context_owner)
-      return name if @index.find_class_definitions(name).any?
-
-      namespace = context_owner.include?("::") ? context_owner.rpartition("::").first : nil
-      return "#{namespace}::#{name}" if namespace && @index.find_class_definitions("#{namespace}::#{name}").any?
+    # Resolve a superclass constant written relative to the subclass, mirroring
+    # Ruby's lexical lookup: each enclosing scope from innermost outward, then
+    # top-level. Compact-style classes have no outer nesting, so they resolve
+    # straight to top-level.
+    def resolve_class_name(name, nesting)
+      (nesting || []).size.downto(1) do |depth|
+        candidate = "#{nesting[0...depth].join('::')}::#{name}"
+        return candidate if @index.find_class_definitions(candidate).any?
+      end
 
       name
     end
