@@ -192,6 +192,25 @@ RSpec.describe CallMap::CallExtractor do
       end
     end
 
+    context "with ::Foo.new.execute chain" do
+      let(:source) do
+        <<~RUBY
+          class Foo
+            def run
+              ::Service.new.execute
+            end
+          end
+        RUBY
+      end
+      let(:calls) { described_class.extract(def_node_for(source, "run")) }
+
+      it "propagates absolute through the call chain" do
+        call = calls.find { |c| c.method_name == "execute" }
+
+        expect(call).to be_absolute
+      end
+    end
+
     context "with an empty method body" do
       let(:source) do
         <<~RUBY

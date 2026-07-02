@@ -69,12 +69,17 @@ module CallMap
       )
     end
 
-    def absolute_constant?(receiver)
-      return false unless receiver.is_a?(Prism::ConstantPathNode)
-
-      current = receiver
-      current = current.parent while current.is_a?(Prism::ConstantPathNode)
-      current.nil?
+    def absolute_constant?(node)
+      case node
+      when Prism::ConstantPathNode
+        current = node
+        current = current.parent while current.is_a?(Prism::ConstantPathNode)
+        current.nil?
+      when Prism::CallNode
+        absolute_constant?(node.receiver)
+      else
+        false
+      end
     end
 
     def receiver_label(receiver)
