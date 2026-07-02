@@ -10,13 +10,42 @@ module CallMap
   class CallbackExtractor < Prism::Visitor
     # @param source [String] the file source
     # @param action_name [String] the action method name
+    # @param owner [String] the class name to scope extraction to
     # @return [Array<MethodCall>]
-    def self.extract(source, action_name)
+    def self.extract(source, action_name, owner:)
       root = Prism.parse(source).value
+      class_body = find_class_body(root, owner)
+      return [] unless class_body
+
       extractor = new(action_name)
-      root.accept(extractor)
+      class_body.accept(extractor)
       extractor.callbacks
     end
+
+    def self.find_class_body(node, owner)
+      target = owner.split("::").last
+      find_class_node(node, target)&.body
+    end
+
+    def self.find_class_node(node, name)
+      return node if class_node_matches?(node, name)
+
+      node.child_nodes.compact.each do |child|
+        result = find_class_node(child, name)
+        return result if result
+      end
+      nil
+    end
+
+    def self.class_node_matches?(node, name)
+      return false unless node.is_a?(Prism::ClassNode)
+
+      const = node.constant_path
+      const_name = const.name.to_s if const.is_a?(Prism::ConstantReadNode) || const.is_a?(Prism::ConstantPathNode)
+      const_name == name
+    end
+
+    private_class_method :find_class_body, :find_class_node
 
     def initialize(action_name)
       super()

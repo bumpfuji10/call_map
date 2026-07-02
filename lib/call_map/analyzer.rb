@@ -59,7 +59,7 @@ module CallMap
       return [] unless definition.kind == :instance_method
 
       source = File.read(definition.path)
-      CallbackExtractor.extract(source, definition.name)
+      CallbackExtractor.extract(source, definition.name, owner: definition.owner)
     end
 
     def extract_calls(definition)
