@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class OrdersController < ApplicationController
-  before_action :set_order, only: %i[show destroy]
+  before_action :authenticate, :set_order, only: %i[show destroy]
 
   def show
     authorize @order, policy_class: OrderPolicy

@@ -28,19 +28,21 @@ module CallMap
 
     def visit_call_node(node)
       if node.name == :before_action && callback_applies?(node)
-        sym = extract_callback_name(node)
-        @callbacks << MethodCall.new(receiver: nil, method_name: sym, line: node.location.start_line) if sym
+        extract_callback_names(node).each do |name|
+          @callbacks << MethodCall.new(receiver: nil, method_name: name, line: node.location.start_line)
+        end
       end
       super
     end
 
     private
 
-    def extract_callback_name(node)
-      first_arg = node.arguments&.arguments&.first
-      return first_arg.value if first_arg.is_a?(Prism::SymbolNode)
+    def extract_callback_names(node)
+      return [] unless node.arguments
 
-      nil
+      node.arguments.arguments.filter_map do |arg|
+        arg.value if arg.is_a?(Prism::SymbolNode)
+      end
     end
 
     def callback_applies?(node)
