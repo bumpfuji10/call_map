@@ -121,6 +121,13 @@ module CallMap
       super
     end
 
+    # Callbacks belong to the class they are declared in — do not descend into
+    # nested classes/modules or method bodies within the target class body.
+    def visit_class_node(_node); end
+    def visit_module_node(_node); end
+    def visit_singleton_class_node(_node); end
+    def visit_def_node(_node); end
+
     private
 
     def extract_callback_names(node)

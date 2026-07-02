@@ -175,6 +175,18 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "nested class callbacks do not leak into the outer class" do
+      let(:definition) { index.find_instance_method("OuterController", "show") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "includes only the outer class's own callbacks" do
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).to include("outer_auth")
+        expect(callback_names).not_to include("inner_auth")
+      end
+    end
+
     context "compact-style class with before_action" do
       let(:definition) { index.find_instance_method("Admin::DashboardController", "show") }
       let(:tree) { analyzer.build_call_tree(definition) }
