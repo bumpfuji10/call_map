@@ -42,11 +42,21 @@ module CallMap
     end
 
     def build_children(definition, remaining_depth, visited, entry: false)
-      callback_nodes = entry ? build_callback_nodes(definition, remaining_depth, visited) : []
+      callback_nodes = if entry && action_entry?(definition)
+                         build_callback_nodes(definition, remaining_depth, visited)
+                       else
+                         []
+                       end
       call_nodes = extract_calls(definition).map do |call|
         resolve_and_build(call, definition, remaining_depth, visited)
       end
       callback_nodes + call_nodes
+    end
+
+    # before_action only runs before a controller action — a public instance
+    # method. Private/protected helpers used as an entry point get no callbacks.
+    def action_entry?(definition)
+      definition.kind == :instance_method && definition.public_method?
     end
 
     # Callback filter symbols are invoked via normal method lookup on the

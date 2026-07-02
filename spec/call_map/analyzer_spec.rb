@@ -212,6 +212,27 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "non-action entry points get no callbacks" do
+      it "does not attach before_action when starting from a private helper" do
+        definition = index.find_instance_method("OrdersController", "set_order")
+        tree = analyzer.build_call_tree(definition)
+
+        callbacks = tree.children.select { |c| c.method_call&.callback? }
+
+        expect(definition.visibility).to eq(:private)
+        expect(callbacks).to be_empty
+      end
+
+      it "still attaches callbacks when starting from a public action" do
+        definition = index.find_instance_method("OrdersController", "destroy")
+        tree = analyzer.build_call_tree(definition)
+
+        callbacks = tree.children.select { |c| c.method_call&.callback? }
+
+        expect(callbacks).not_to be_empty
+      end
+    end
+
     context "bare calls resolve through the inheritance chain" do
       let(:definition) { index.find_instance_method("InheritedCallController", "show") }
       let(:tree) { analyzer.build_call_tree(definition) }
