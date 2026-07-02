@@ -17,6 +17,7 @@ Metrics/BlockLength:
 Metrics/ClassLength:
   Exclude:
     - "lib/call_map/definition_collector.rb"
+    - "lib/call_map/callback_extractor.rb"
 
 Style/Documentation:
   Enabled: false

@@ -23,29 +23,66 @@ module CallMap
     end
 
     def self.find_class_body(node, owner)
-      target = owner.split("::").last
-      find_class_node(node, target)&.body
+      find_class_node(node, owner, [])&.body
     end
 
-    def self.find_class_node(node, name)
-      return node if class_node_matches?(node, name)
+    def self.find_class_node(node, owner, namespace)
+      return search_within_class_or_module(node, owner, namespace) if class_or_module?(node)
 
-      node.child_nodes.compact.each do |child|
-        result = find_class_node(child, name)
+      search_children(node, owner, namespace)
+    end
+
+    def self.class_or_module?(node)
+      node.is_a?(Prism::ClassNode) || node.is_a?(Prism::ModuleNode)
+    end
+
+    def self.search_within_class_or_module(node, owner, namespace)
+      qualified = build_qualified_name(node, namespace)
+      return node if node.is_a?(Prism::ClassNode) && qualified == owner
+
+      body_children = node.body&.child_nodes || []
+      body_children.compact.each do |child|
+        result = find_class_node(child, owner, qualified.split("::"))
         return result if result
       end
       nil
     end
 
-    def self.class_node_matches?(node, name)
-      return false unless node.is_a?(Prism::ClassNode)
-
-      const = node.constant_path
-      const_name = const.name.to_s if const.is_a?(Prism::ConstantReadNode) || const.is_a?(Prism::ConstantPathNode)
-      const_name == name
+    def self.search_children(node, owner, namespace)
+      node.child_nodes.compact.each do |child|
+        result = find_class_node(child, owner, namespace)
+        return result if result
+      end
+      nil
     end
 
-    private_class_method :find_class_body, :find_class_node
+    def self.build_qualified_name(node, namespace)
+      name = const_path_to_string(node.constant_path)
+      namespace.empty? ? name : "#{namespace.join('::')}::#{name}"
+    end
+
+    def self.const_path_to_string(const)
+      case const
+      when Prism::ConstantReadNode then const.name.to_s
+      when Prism::ConstantPathNode then full_constant_path(const)
+      else const.to_s
+      end
+    end
+
+    def self.full_constant_path(node)
+      parts = []
+      current = node
+      while current.is_a?(Prism::ConstantPathNode)
+        parts.unshift(current.name.to_s)
+        current = current.parent
+      end
+      parts.unshift(current.name.to_s) if current.is_a?(Prism::ConstantReadNode)
+      parts.join("::")
+    end
+
+    private_class_method :find_class_body, :find_class_node, :class_or_module?,
+                         :search_within_class_or_module, :search_children,
+                         :build_qualified_name, :const_path_to_string, :full_constant_path
 
     def initialize(action_name)
       super()
