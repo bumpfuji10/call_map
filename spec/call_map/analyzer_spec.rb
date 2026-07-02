@@ -212,6 +212,19 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "bare calls resolve through the inheritance chain" do
+      let(:definition) { index.find_instance_method("InheritedCallController", "show") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "resolves a parent-defined helper called bare in the action body" do
+        call = tree.children.find { |c| c.method_call&.method_name == "authenticate_user!" && !c.method_call.callback? }
+
+        expect(call).not_to be_nil
+        expect(call).to be_resolved
+        expect(call.definition.owner).to eq("ApplicationController")
+      end
+    end
+
     context "callback resolution follows the action's inheritance order" do
       let(:definition) { index.find_instance_method("Admin::OrdersController", "show") }
       let(:tree) { analyzer.build_call_tree(definition) }

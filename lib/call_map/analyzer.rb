@@ -50,21 +50,13 @@ module CallMap
     end
 
     # Callback filter symbols are invoked via normal method lookup on the
-    # controller instance, so resolve against the action's class first and
-    # then up its superclass chain (a child override wins over the parent's).
+    # controller instance — Resolver walks the superclass chain from the
+    # action's class, so a child override wins over the parent's method.
     def build_callback_nodes(definition, remaining_depth, visited)
       extract_callbacks(definition).map do |call|
-        resolved = resolve_callback(call, definition.owner)
+        resolved = @resolver.resolve(call, context_owner: definition.owner)
         build_resolved_node(resolved, call, remaining_depth, visited)
       end
-    end
-
-    def resolve_callback(call, action_owner)
-      ancestor_chain(action_owner).each do |owner|
-        found = @resolver.resolve(call, context_owner: owner)
-        return found if found
-      end
-      nil
     end
 
     def resolve_and_build(call, parent_definition, remaining_depth, visited)
@@ -88,7 +80,7 @@ module CallMap
     def extract_callbacks(definition)
       return [] unless definition.kind == :instance_method
 
-      ancestor_chain(definition.owner).reverse.flat_map do |owner|
+      @index.ancestor_chain(definition.owner).reverse.flat_map do |owner|
         callbacks_declared_on(owner, definition.name)
       end
     end
@@ -97,41 +89,6 @@ module CallMap
       @index.find_class_definitions(owner).map(&:path).uniq.flat_map do |path|
         CallbackExtractor.extract(File.read(path), action_name, owner: owner)
       end
-    end
-
-    # The class plus its superclasses (innermost first), resolved via the
-    # index. Stops at classes not present in the index or on a cycle.
-    def ancestor_chain(owner)
-      chain = []
-      current = owner
-      while current && !chain.include?(current)
-        chain << current
-        current = superclass_of(current)
-      end
-      chain
-    end
-
-    def superclass_of(owner)
-      definition = @index.find_class_definitions(owner).find(&:superclass)
-      return nil unless definition
-
-      superclass = definition.superclass
-      # A "::"-prefixed superclass is an absolute path — no namespace fallback.
-      return superclass.delete_prefix("::") if superclass.start_with?("::")
-
-      resolve_class_name(superclass, definition.lexical_nesting)
-    end
-
-    # Resolve a superclass constant written relative to the subclass, mirroring
-    # Ruby's lexical lookup: each enclosing scope (a full qualified name) from
-    # innermost outward, then top-level.
-    def resolve_class_name(name, nesting)
-      (nesting || []).reverse_each do |scope|
-        candidate = "#{scope}::#{name}"
-        return candidate if @index.find_class_definitions(candidate).any?
-      end
-
-      name
     end
 
     def extract_calls(definition)

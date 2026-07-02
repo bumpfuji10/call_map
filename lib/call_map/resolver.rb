@@ -29,12 +29,18 @@ module CallMap
 
     private
 
+    # Bare (and `self.`) calls dispatch through normal method lookup, so walk
+    # the owner's superclass chain — inherited helpers like a parent
+    # controller's `authenticate_user!` resolve too.
     def resolve_bare(call, context_owner, context_kind)
-      if context_kind == :class_method
-        @index.find_class_method(context_owner, call.method_name)
-      else
-        @index.find_instance_method(context_owner, call.method_name)
+      finder = context_kind == :class_method ? :find_class_method : :find_instance_method
+
+      @index.ancestor_chain(context_owner).each do |owner|
+        result = @index.public_send(finder, owner, call.method_name)
+        return result if result
       end
+
+      nil
     end
 
     # Resolve a call with an explicit receiver.
