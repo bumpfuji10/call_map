@@ -114,7 +114,11 @@ module CallMap
       definition = @index.find_class_definitions(owner).find(&:superclass)
       return nil unless definition
 
-      resolve_class_name(definition.superclass, definition.lexical_nesting)
+      superclass = definition.superclass
+      # A "::"-prefixed superclass is an absolute path — no namespace fallback.
+      return superclass.delete_prefix("::") if superclass.start_with?("::")
+
+      resolve_class_name(superclass, definition.lexical_nesting)
     end
 
     # Resolve a superclass constant written relative to the subclass, mirroring

@@ -220,6 +220,18 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "absolute superclass skips the namespace fallback" do
+      let(:definition) { index.find_instance_method("Admin::StrictController", "show") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "inherits from the top-level ApplicationController, not Admin::ApplicationController" do
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).to include("authenticate_user!")
+        expect(callback_names).not_to include("admin_guard")
+      end
+    end
+
     context "reopened class callbacks are aggregated" do
       let(:definition) { index.find_instance_method("ReopenedController", "show") }
       let(:tree) { analyzer.build_call_tree(definition) }

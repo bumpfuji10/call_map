@@ -37,7 +37,7 @@ module CallMap
     # Called when the traversal reaches a `class` definition.
     def visit_class_node(node)
       enter_namespace(node.constant_path) do
-        @definitions << build_definition(:class, current_namespace, node, superclass: constant_name(node.superclass))
+        @definitions << build_definition(:class, current_namespace, node, superclass: superclass_name(node))
         super # descend into the class body (its methods etc.)
       end
     end
@@ -97,6 +97,15 @@ module CallMap
       when :unresolved then nil
       else { kind: :class_method, owner: owner }
       end
+    end
+
+    # The superclass constant as written; an absolute path keeps its leading
+    # "::" so downstream resolution can skip the namespace fallback.
+    def superclass_name(node)
+      name = constant_name(node.superclass)
+      return name unless name && absolute_constant?(node.superclass)
+
+      "::#{name}"
     end
 
     def build_definition(kind, name, node, owner: nil, superclass: nil)
