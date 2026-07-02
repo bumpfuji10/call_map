@@ -34,13 +34,7 @@ module CallMap
     # controller's `authenticate_user!` resolve too.
     def resolve_bare(call, context_owner, context_kind)
       finder = context_kind == :class_method ? :find_class_method : :find_instance_method
-
-      @index.ancestor_chain(context_owner).each do |owner|
-        result = @index.public_send(finder, owner, call.method_name)
-        return result if result
-      end
-
-      nil
+      find_in_chain(finder, context_owner, call.method_name)
     end
 
     # Resolve a call with an explicit receiver.
@@ -55,7 +49,7 @@ module CallMap
 
       # bare `new` or `self.new` chain (implicit self.new inside a class method only)
       if %w[new self.new].include?(receiver) && context_kind == :class_method
-        return @index.find_instance_method(context_owner, call.method_name)
+        return find_in_chain(:find_instance_method, context_owner, call.method_name)
       end
 
       # `SomeClass.method` → class method
@@ -65,11 +59,11 @@ module CallMap
     end
 
     def resolve_constant(kind, owner, call, lexical_nesting)
+      finder = kind == :class_method ? :find_class_method : :find_instance_method
       if call.absolute?
-        finder = kind == :class_method ? :find_class_method : :find_instance_method
-        @index.public_send(finder, owner, call.method_name)
+        find_in_chain(finder, owner, call.method_name)
       else
-        find_with_namespace_fallback(kind, owner, call.method_name, lexical_nesting)
+        find_with_namespace_fallback(finder, owner, call.method_name, lexical_nesting)
       end
     end
 
@@ -77,15 +71,24 @@ module CallMap
     # (mirroring Ruby's constant lookup), then fall back to top-level. Each
     # nesting entry is a scope's full qualified name and is used as a prefix
     # directly, so a compact-style scope never exposes its path segments.
-    def find_with_namespace_fallback(kind, owner, method_name, lexical_nesting)
-      finder = kind == :class_method ? :find_class_method : :find_instance_method
-
+    def find_with_namespace_fallback(finder, owner, method_name, lexical_nesting)
       (lexical_nesting || []).reverse_each do |scope|
-        result = @index.public_send(finder, "#{scope}::#{owner}", method_name)
+        result = find_in_chain(finder, "#{scope}::#{owner}", method_name)
         return result if result
       end
 
-      @index.public_send(finder, owner, method_name)
+      find_in_chain(finder, owner, method_name)
+    end
+
+    # Method dispatch walks the receiver class's superclass chain, so a
+    # method defined on a parent (class or instance side) resolves too.
+    def find_in_chain(finder, owner, method_name)
+      @index.ancestor_chain(owner).each do |candidate|
+        result = @index.public_send(finder, candidate, method_name)
+        return result if result
+      end
+
+      nil
     end
   end
 end

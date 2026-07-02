@@ -212,6 +212,25 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "receiver calls resolve through the receiver's inheritance chain" do
+      let(:definition) { index.find_class_method("ChildService", "run") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "resolves ChildService.execute to the parent's class method" do
+        child = tree.children.find { |c| c.method_call&.method_name == "execute" }
+
+        expect(child).to be_resolved
+        expect(child.definition.qualified_name).to eq("BaseService.execute")
+      end
+
+      it "resolves ChildService.new.perform to the parent's instance method" do
+        child = tree.children.find { |c| c.method_call&.method_name == "perform" }
+
+        expect(child).to be_resolved
+        expect(child.definition.qualified_name).to eq("BaseService#perform")
+      end
+    end
+
     context "non-action entry points get no callbacks" do
       it "does not attach before_action when starting from a private helper" do
         definition = index.find_instance_method("OrdersController", "set_order")
