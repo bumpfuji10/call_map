@@ -51,6 +51,20 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "resolving self.new.perform in a class method" do
+      let(:definition) { index.find_class_method("SelfNewService", "execute") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "resolves self.new.perform to the instance method" do
+        child = tree.children.find { |c| c.method_call&.method_name == "perform" }
+
+        expect(child).not_to be_nil
+        expect(child).to be_resolved
+        expect(child.definition.kind).to eq(:instance_method)
+        expect(child.definition.qualified_name).to eq("SelfNewService#perform")
+      end
+    end
+
     context "resolving SomeClass.new(...).execute to an instance method" do
       let(:definition) { index.find_class_method("OrderDeleteService", "execute") }
       let(:tree) { analyzer.build_call_tree(definition) }

@@ -47,8 +47,8 @@ module CallMap
         return resolve_constant(:instance_method, owner, call, context_owner)
       end
 
-      # bare `new(...)` chain (implicit self.new inside a class method only)
-      if receiver == "new" && context_kind == :class_method
+      # bare `new` or `self.new` chain (implicit self.new inside a class method only)
+      if %w[new self.new].include?(receiver) && context_kind == :class_method
         return @index.find_instance_method(context_owner, call.method_name)
       end
 
