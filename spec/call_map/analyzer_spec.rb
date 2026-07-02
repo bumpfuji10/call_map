@@ -212,6 +212,23 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "skip_before_action removes inherited callbacks" do
+      it "excludes a parent callback skipped for the action" do
+        tree = analyzer.build_call_tree(index.find_instance_method("SkipController", "show"))
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).not_to include("authenticate_user!")
+        expect(callback_names).to include("lightweight_check")
+      end
+
+      it "keeps the parent callback for actions outside the skip filter" do
+        tree = analyzer.build_call_tree(index.find_instance_method("SkipController", "edit"))
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).to include("authenticate_user!")
+      end
+    end
+
     context "receiver calls resolve through the receiver's inheritance chain" do
       let(:definition) { index.find_class_method("ChildService", "run") }
       let(:tree) { analyzer.build_call_tree(definition) }
