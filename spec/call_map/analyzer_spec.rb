@@ -175,6 +175,18 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "string-specified only/except filters" do
+      let(:definition) { index.find_instance_method("StringFilterController", "show") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "matches only: \"show\" and excludes except: [\"show\"]" do
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).to include("audit")
+        expect(callback_names).not_to include("block_destroy")
+      end
+    end
+
     context "nested class callbacks do not leak into the outer class" do
       let(:definition) { index.find_instance_method("OuterController", "show") }
       let(:tree) { analyzer.build_call_tree(definition) }

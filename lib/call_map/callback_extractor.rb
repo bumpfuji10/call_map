@@ -162,12 +162,18 @@ module CallMap
 
     def action_in_list?(value_node)
       case value_node
-      when Prism::SymbolNode
-        value_node.value == @action_name
       when Prism::ArrayNode
-        value_node.elements.any? { |el| el.is_a?(Prism::SymbolNode) && el.value == @action_name }
+        value_node.elements.any? { |el| action_name_matches?(el) }
       else
-        false
+        action_name_matches?(value_node)
+      end
+    end
+
+    def action_name_matches?(node)
+      case node
+      when Prism::SymbolNode then node.value == @action_name
+      when Prism::StringNode then node.unescaped == @action_name
+      else false
       end
     end
   end
