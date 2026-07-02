@@ -25,9 +25,11 @@ module CallMap
       @circular
     end
 
-    # Human-readable label for this node.
+    # Human-readable label for this node. A callback-originated node keeps its
+    # callback label (e.g. "before_action set_order") even when resolved, so
+    # tree output can distinguish it from a plain call.
     def label
-      base = if definition
+      base = if definition && !method_call&.callback?
                definition.qualified_name
              elsif method_call
                method_call.label

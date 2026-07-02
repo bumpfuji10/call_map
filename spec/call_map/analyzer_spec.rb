@@ -43,6 +43,13 @@ RSpec.describe CallMap::Analyzer do
         expect(set_order.method_call.label).to eq("before_action set_order")
       end
 
+      it "keeps the before_action label on the CallNode even when resolved" do
+        set_order = tree.children.find { |c| c.method_call&.method_name == "set_order" }
+
+        expect(set_order).to be_resolved
+        expect(set_order.label).to eq("before_action set_order")
+      end
+
       it "resolves OrderDeleteService.execute to the class method definition" do
         child = tree.children.find { |c| c.label == "OrderDeleteService.execute" }
 
