@@ -116,6 +116,17 @@ RSpec.describe CallMap::Analyzer do
         expect { analyzer.build_call_tree(index.find_instance_method("OrdersController", "destroy")) }
           .not_to raise_error
       end
+
+      it "marks the revisited node as circular with a [circular] label" do
+        tree = analyzer.build_call_tree(index.find_instance_method("CircularService", "ping"))
+        pong = tree.children.find { |c| c.method_call&.method_name == "pong" }
+        revisited_ping = pong.children.find { |c| c.method_call&.method_name == "ping" }
+
+        expect(revisited_ping).to be_circular
+        expect(revisited_ping.label).to eq("CircularService#ping [circular]")
+        expect(revisited_ping.children).to eq([])
+        expect(pong).not_to be_circular
+      end
     end
 
     context "bare calls inside a class method resolve to class methods" do

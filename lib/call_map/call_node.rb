@@ -7,10 +7,12 @@ module CallMap
     # @param definition [Definition, nil] resolved definition, nil for unresolved leaves
     # @param method_call [MethodCall, nil] the call site that led here (nil for the root)
     # @param children [Array<CallNode>]
-    def initialize(definition: nil, method_call: nil, children: [])
+    # @param circular [Boolean] true when this node revisits a definition already on the current path
+    def initialize(definition: nil, method_call: nil, children: [], circular: false)
       @definition = definition
       @method_call = method_call
       @children = children
+      @circular = circular
     end
 
     attr_reader :definition, :method_call, :children
@@ -19,15 +21,20 @@ module CallMap
       !definition.nil?
     end
 
+    def circular?
+      @circular
+    end
+
     # Human-readable label for this node.
     def label
-      if definition
-        definition.qualified_name
-      elsif method_call
-        method_call.label
-      else
-        "[unknown]"
-      end
+      base = if definition
+               definition.qualified_name
+             elsif method_call
+               method_call.label
+             else
+               "[unknown]"
+             end
+      circular? ? "#{base} [circular]" : base
     end
   end
 end

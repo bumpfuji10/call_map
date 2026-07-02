@@ -31,13 +31,14 @@ module CallMap
 
     def build_node(definition, method_call, remaining_depth, visited, entry: false)
       key = node_key(definition)
-      children = if remaining_depth.positive? && definition.method? && !visited.include?(key)
+      circular = definition.method? && visited.include?(key)
+      children = if remaining_depth.positive? && definition.method? && !circular
                    build_children(definition, remaining_depth, visited | [key], entry: entry)
                  else
                    []
                  end
 
-      CallNode.new(definition: definition, method_call: method_call, children: children)
+      CallNode.new(definition: definition, method_call: method_call, children: children, circular: circular)
     end
 
     def build_children(definition, remaining_depth, visited, entry: false)
