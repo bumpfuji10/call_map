@@ -17,6 +17,7 @@ Metrics/BlockLength:
 Metrics/ParameterLists:
   Exclude:
     - "lib/call_map/definition.rb"
+    - "lib/call_map/method_call.rb"
 
 Metrics/ClassLength:
   Exclude:

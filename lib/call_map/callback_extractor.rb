@@ -114,7 +114,8 @@ module CallMap
     def visit_call_node(node)
       if node.name == :before_action && callback_applies?(node)
         extract_callback_names(node).each do |name|
-          @callbacks << MethodCall.new(receiver: nil, method_name: name, line: node.location.start_line)
+          @callbacks << MethodCall.new(receiver: nil, method_name: name, line: node.location.start_line,
+                                       callback: "before_action")
         end
       end
       super

@@ -11,15 +11,17 @@ module CallMap
     # @param line [Integer] line number of the call site
     # @param dynamic [Boolean] true for send/public_send style calls
     # @param absolute [Boolean] true for ::Foo style absolute constant paths
-    def initialize(receiver:, method_name:, line:, dynamic: false, absolute: false)
+    # @param callback [String, nil] callback type (e.g. "before_action") if this call originates from a DSL callback
+    def initialize(receiver:, method_name:, line:, dynamic: false, absolute: false, callback: nil)
       @receiver = receiver
       @method_name = method_name
       @line = line
       @dynamic = dynamic
       @absolute = absolute
+      @callback = callback
     end
 
-    attr_reader :receiver, :method_name, :line
+    attr_reader :receiver, :method_name, :line, :callback
 
     def dynamic?
       @dynamic
@@ -29,6 +31,10 @@ module CallMap
       @absolute
     end
 
+    def callback?
+      !@callback.nil?
+    end
+
     def bare?
       receiver.nil?
     end
@@ -36,7 +42,10 @@ module CallMap
     # Human-readable label for tree output.
     def label
       base = receiver ? "#{receiver}.#{method_name}" : method_name
-      dynamic? ? "#{base} [dynamic]" : base
+      return "#{callback} #{base}" if callback?
+      return "#{base} [dynamic]" if dynamic?
+
+      base
     end
   end
 end
