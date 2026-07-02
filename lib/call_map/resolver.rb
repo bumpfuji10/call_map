@@ -67,11 +67,14 @@ module CallMap
       end
     end
 
+    # Try the constant against each lexical scope from innermost outward
+    # (mirroring Ruby's constant lookup), then fall back to top-level.
     def find_with_namespace_fallback(kind, owner, method_name, lexical_nesting)
       finder = kind == :class_method ? :find_class_method : :find_instance_method
 
-      if lexical_nesting
-        result = @index.public_send(finder, "#{lexical_nesting}::#{owner}", method_name)
+      (lexical_nesting || []).size.downto(1) do |depth|
+        prefix = lexical_nesting[0...depth].join("::")
+        result = @index.public_send(finder, "#{prefix}::#{owner}", method_name)
         return result if result
       end
 

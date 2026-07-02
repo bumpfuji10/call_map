@@ -105,14 +105,15 @@ module CallMap
                      lexical_nesting: nesting)
     end
 
+    # The lexical scope stack at the definition site, outermost first
+    # (e.g. ["Reports", "Runner"]). Ruby resolves relative constants against
+    # each scope from innermost outward, so the whole stack is preserved.
+    # A compact-style entry stays as one element ("Admin::Runner"), so its
+    # intermediate segments are never used as lookup prefixes.
     def lexical_nesting
       return nil if @namespace.empty?
 
-      if @namespace.size == 1
-        @namespace.first
-      else
-        @namespace[0..-2].join("::")
-      end
+      @namespace.dup
     end
 
     # Route to absolute or relative namespace handling based on the constant node.

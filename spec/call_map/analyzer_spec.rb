@@ -212,6 +212,19 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "innermost lexical scope wins for shadowed constants" do
+      let(:definition) { index.find_instance_method("Reports::ShadowRunner", "run") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "resolves Formatter.call to Reports::ShadowRunner::Formatter, not Reports::Formatter" do
+        child = tree.children.find { |c| c.method_call&.method_name == "call" }
+
+        expect(child).not_to be_nil
+        expect(child).to be_resolved
+        expect(child.definition.owner).to eq("Reports::ShadowRunner::Formatter")
+      end
+    end
+
     context "absolute constant skips namespace fallback" do
       let(:definition) { index.find_instance_method("Reports::AbsoluteCaller", "run") }
       let(:tree) { analyzer.build_call_tree(definition) }
