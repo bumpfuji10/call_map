@@ -106,9 +106,13 @@ module CallMap
     end
 
     def lexical_nesting
-      return nil if @namespace.size <= 1
+      return nil if @namespace.empty?
 
-      @namespace[0..-2].join("::")
+      if @namespace.size == 1
+        @namespace.first
+      else
+        @namespace[0..-2].join("::")
+      end
     end
 
     # Route to absolute or relative namespace handling based on the constant node.
