@@ -23,7 +23,7 @@ module CallMap
       if call.bare? || call.receiver == "self"
         resolve_bare(call, context_owner, context_kind)
       else
-        resolve_receiver(call, context_owner)
+        resolve_receiver(call, context_owner, context_kind)
       end
     end
 
@@ -38,7 +38,7 @@ module CallMap
     end
 
     # Resolve a call with an explicit receiver.
-    def resolve_receiver(call, context_owner)
+    def resolve_receiver(call, context_owner, context_kind)
       receiver = call.receiver
 
       # `SomeClass.new(...)` chain → instance method on SomeClass
@@ -47,9 +47,10 @@ module CallMap
         return resolve_constant(:instance_method, owner, call, context_owner)
       end
 
-      # bare `new(...)` chain (implicit self.new inside a class method)
-      # → instance method on the context owner
-      return @index.find_instance_method(context_owner, call.method_name) if receiver == "new"
+      # bare `new(...)` chain (implicit self.new inside a class method only)
+      if receiver == "new" && context_kind == :class_method
+        return @index.find_instance_method(context_owner, call.method_name)
+      end
 
       # `SomeClass.method` → class method
       return resolve_constant(:class_method, receiver, call, context_owner) if receiver.match?(/\A[A-Z]/)
