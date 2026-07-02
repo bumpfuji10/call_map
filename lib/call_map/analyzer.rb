@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "prism"
+require "set" # rubocop:disable Lint/RedundantRequireStatement -- explicit for clarity; Set autoloads only on 3.2+
 require_relative "call_extractor"
 require_relative "callback_extractor"
 require_relative "resolver"
