@@ -41,9 +41,20 @@ module CallMap
     end
 
     def build_children(definition, remaining_depth, visited, entry: false)
-      callbacks = entry ? extract_callbacks(definition) : []
-      calls = extract_calls(definition)
-      (callbacks + calls).map { |call| resolve_and_build(call, definition, remaining_depth, visited) }
+      callback_nodes = entry ? build_callback_nodes(definition, remaining_depth, visited) : []
+      call_nodes = extract_calls(definition).map do |call|
+        resolve_and_build(call, definition, remaining_depth, visited)
+      end
+      callback_nodes + call_nodes
+    end
+
+    # Callbacks resolve against the class that declared them, so an inherited
+    # `before_action :authenticate_user!` finds the parent's method.
+    def build_callback_nodes(definition, remaining_depth, visited)
+      extract_callbacks(definition).map do |call, declaring_owner|
+        resolved = @resolver.resolve(call, context_owner: declaring_owner)
+        build_resolved_node(resolved, call, remaining_depth, visited)
+      end
     end
 
     def resolve_and_build(call, parent_definition, remaining_depth, visited)
@@ -51,7 +62,10 @@ module CallMap
                                    context_owner: parent_definition.owner,
                                    context_kind: parent_definition.kind,
                                    lexical_nesting: parent_definition.lexical_nesting)
+      build_resolved_node(resolved, call, remaining_depth, visited)
+    end
 
+    def build_resolved_node(resolved, call, remaining_depth, visited)
       if resolved
         build_node(resolved, call, remaining_depth - 1, visited)
       else
@@ -59,11 +73,50 @@ module CallMap
       end
     end
 
+    # Collect [callback, declaring_owner] pairs for the action, walking the
+    # superclass chain so that parent-controller callbacks run first (as Rails does).
     def extract_callbacks(definition)
       return [] unless definition.kind == :instance_method
 
-      source = File.read(definition.path)
-      CallbackExtractor.extract(source, definition.name, owner: definition.owner)
+      ancestor_chain(definition.owner).reverse.flat_map do |owner|
+        callbacks_declared_on(owner, definition.name).map { |call| [call, owner] }
+      end
+    end
+
+    def callbacks_declared_on(owner, action_name)
+      @index.find_class_definitions(owner).map(&:path).uniq.flat_map do |path|
+        CallbackExtractor.extract(File.read(path), action_name, owner: owner)
+      end
+    end
+
+    # The class plus its superclasses (innermost first), resolved via the
+    # index. Stops at classes not present in the index or on a cycle.
+    def ancestor_chain(owner)
+      chain = []
+      current = owner
+      while current && !chain.include?(current)
+        chain << current
+        current = superclass_of(current)
+      end
+      chain
+    end
+
+    def superclass_of(owner)
+      superclass = @index.find_class_definitions(owner).filter_map(&:superclass).first
+      return nil unless superclass
+
+      resolve_class_name(superclass, owner)
+    end
+
+    # Best-effort resolution of a superclass constant written relative to the
+    # subclass: try the name as-is, then prefixed with the subclass namespace.
+    def resolve_class_name(name, context_owner)
+      return name if @index.find_class_definitions(name).any?
+
+      namespace = context_owner.include?("::") ? context_owner.rpartition("::").first : nil
+      return "#{namespace}::#{name}" if namespace && @index.find_class_definitions("#{namespace}::#{name}").any?
+
+      name
     end
 
     def extract_calls(definition)

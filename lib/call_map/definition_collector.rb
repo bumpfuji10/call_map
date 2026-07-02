@@ -37,7 +37,7 @@ module CallMap
     # Called when the traversal reaches a `class` definition.
     def visit_class_node(node)
       enter_namespace(node.constant_path) do
-        @definitions << build_definition(:class, current_namespace, node)
+        @definitions << build_definition(:class, current_namespace, node, superclass: constant_name(node.superclass))
         super # descend into the class body (its methods etc.)
       end
     end
@@ -99,10 +99,10 @@ module CallMap
       end
     end
 
-    def build_definition(kind, name, node, owner: nil)
+    def build_definition(kind, name, node, owner: nil, superclass: nil)
       nesting = %i[instance_method class_method].include?(kind) ? lexical_nesting : nil
       Definition.new(kind: kind, name: name, owner: owner, path: @path, line: node.location.start_line,
-                     lexical_nesting: nesting)
+                     lexical_nesting: nesting, superclass: superclass)
     end
 
     # The lexical scope stack at the definition site, outermost first

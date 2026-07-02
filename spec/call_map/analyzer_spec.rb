@@ -175,6 +175,25 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "parent controller callbacks are inherited" do
+      let(:definition) { index.find_instance_method("OrdersController", "destroy") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "includes ApplicationController's before_action before the subclass's own" do
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names.first).to eq("authenticate_user!")
+        expect(callback_names).to include("set_order")
+      end
+
+      it "resolves the inherited callback to the parent's instance method" do
+        auth = tree.children.find { |c| c.method_call&.method_name == "authenticate_user!" }
+
+        expect(auth).to be_resolved
+        expect(auth.definition.owner).to eq("ApplicationController")
+      end
+    end
+
     context "reopened class callbacks are aggregated" do
       let(:definition) { index.find_instance_method("ReopenedController", "show") }
       let(:tree) { analyzer.build_call_tree(definition) }

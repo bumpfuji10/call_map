@@ -41,6 +41,12 @@ module CallMap
       find_method(:class_method, owner, name)
     end
 
+    # All :class definitions matching the qualified name (a class may be
+    # reopened across files), in indexing order.
+    def find_class_definitions(qualified_name)
+      definitions.select { |d| d.kind == :class && d.name == qualified_name }
+    end
+
     private
 
     def find_method(kind, owner, name)

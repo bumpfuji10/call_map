@@ -15,7 +15,8 @@ module CallMap
     # @param line [Integer] starting line number of the definition
     # @param owner [String, nil] qualified constant name of the enclosing class/module (for methods)
     # @param lexical_nesting [Array<String>, nil] lexical scope stack at the definition site, outermost first
-    def initialize(kind:, name:, path:, line:, owner: nil, lexical_nesting: nil)
+    # @param superclass [String, nil] superclass constant name as written (for :class definitions)
+    def initialize(kind:, name:, path:, line:, owner: nil, lexical_nesting: nil, superclass: nil)
       raise ArgumentError, "unknown kind: #{kind}" unless KINDS.include?(kind)
 
       @kind = kind
@@ -24,11 +25,12 @@ module CallMap
       @path = path
       @line = line
       @lexical_nesting = lexical_nesting
+      @superclass = superclass
       # Placeholder for method-leading comments etc., to be filled by a later issue.
       @metadata = {}
     end
 
-    attr_reader :kind, :name, :owner, :path, :line, :lexical_nesting
+    attr_reader :kind, :name, :owner, :path, :line, :lexical_nesting, :superclass
     attr_accessor :metadata
 
     def class_or_module?
