@@ -17,13 +17,13 @@ module CallMap
     # @param call [MethodCall] the call to resolve
     # @param context_owner [String] the class/module the calling method belongs to
     # @return [Definition, nil]
-    def resolve(call, context_owner:, context_kind: :instance_method)
+    def resolve(call, context_owner:, context_kind: :instance_method, lexical_nesting: nil)
       return nil if call.dynamic?
 
       if call.bare? || call.receiver == "self"
         resolve_bare(call, context_owner, context_kind)
       else
-        resolve_receiver(call, context_owner, context_kind)
+        resolve_receiver(call, context_owner, context_kind, lexical_nesting)
       end
     end
 
@@ -38,13 +38,13 @@ module CallMap
     end
 
     # Resolve a call with an explicit receiver.
-    def resolve_receiver(call, context_owner, context_kind)
+    def resolve_receiver(call, context_owner, context_kind, lexical_nesting)
       receiver = call.receiver
 
       # `SomeClass.new(...)` chain → instance method on SomeClass
       if receiver.match?(/\A([A-Z][A-Za-z0-9:]*?)\.new\z/)
         owner = receiver.sub(/\.new\z/, "")
-        return resolve_constant(:instance_method, owner, call, context_owner)
+        return resolve_constant(:instance_method, owner, call, lexical_nesting)
       end
 
       # bare `new` or `self.new` chain (implicit self.new inside a class method only)
@@ -53,36 +53,29 @@ module CallMap
       end
 
       # `SomeClass.method` → class method
-      return resolve_constant(:class_method, receiver, call, context_owner) if receiver.match?(/\A[A-Z]/)
+      return resolve_constant(:class_method, receiver, call, lexical_nesting) if receiver.match?(/\A[A-Z]/)
 
       nil
     end
 
-    def resolve_constant(kind, owner, call, context_owner)
+    def resolve_constant(kind, owner, call, lexical_nesting)
       if call.absolute?
         finder = kind == :class_method ? :find_class_method : :find_instance_method
         @index.public_send(finder, owner, call.method_name)
       else
-        find_with_namespace_fallback(kind, owner, call.method_name, context_owner)
+        find_with_namespace_fallback(kind, owner, call.method_name, lexical_nesting)
       end
     end
 
-    def find_with_namespace_fallback(kind, owner, method_name, context_owner)
+    def find_with_namespace_fallback(kind, owner, method_name, lexical_nesting)
       finder = kind == :class_method ? :find_class_method : :find_instance_method
-      namespace = namespace_of(context_owner)
 
-      if namespace
-        result = @index.public_send(finder, "#{namespace}::#{owner}", method_name)
+      if lexical_nesting
+        result = @index.public_send(finder, "#{lexical_nesting}::#{owner}", method_name)
         return result if result
       end
 
       @index.public_send(finder, owner, method_name)
-    end
-
-    def namespace_of(owner)
-      return nil unless owner.include?("::")
-
-      owner.rpartition("::").first
     end
   end
 end

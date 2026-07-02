@@ -57,10 +57,21 @@ module CallMap
     end
 
     def self.build_qualified_name(node, namespace)
-      name = const_path_to_string(node.constant_path)
-      return name if namespace.empty? || already_qualified?(name, namespace)
+      const = node.constant_path
+      return const_path_to_string(const) if namespace.empty? || absolute_constant?(const)
+
+      name = const_path_to_string(const)
+      return name if already_qualified?(name, namespace)
 
       "#{namespace.join('::')}::#{name}"
+    end
+
+    def self.absolute_constant?(const)
+      return false unless const.is_a?(Prism::ConstantPathNode)
+
+      current = const
+      current = current.parent while current.is_a?(Prism::ConstantPathNode)
+      current.nil?
     end
 
     def self.already_qualified?(name, namespace)
@@ -89,7 +100,7 @@ module CallMap
 
     private_class_method :find_class_body, :find_class_node, :class_or_module?,
                          :search_within_class_or_module, :search_children,
-                         :build_qualified_name, :already_qualified?,
+                         :build_qualified_name, :absolute_constant?, :already_qualified?,
                          :const_path_to_string, :full_constant_path
 
     def initialize(action_name)

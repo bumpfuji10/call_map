@@ -100,7 +100,15 @@ module CallMap
     end
 
     def build_definition(kind, name, node, owner: nil)
-      Definition.new(kind: kind, name: name, owner: owner, path: @path, line: node.location.start_line)
+      nesting = %i[instance_method class_method].include?(kind) ? lexical_nesting : nil
+      Definition.new(kind: kind, name: name, owner: owner, path: @path, line: node.location.start_line,
+                     lexical_nesting: nesting)
+    end
+
+    def lexical_nesting
+      return nil if @namespace.size <= 1
+
+      @namespace[0..-2].join("::")
     end
 
     # Route to absolute or relative namespace handling based on the constant node.
