@@ -23,6 +23,14 @@ RSpec.describe CallMap::Analyzer do
         expect(labels).to include("OrderNotifier.notify_deletion")
       end
 
+      it "includes before_action callbacks as children" do
+        set_order = tree.children.find { |c| c.method_call&.method_name == "set_order" }
+
+        expect(set_order).not_to be_nil
+        expect(set_order).to be_resolved
+        expect(set_order.definition.kind).to eq(:instance_method)
+      end
+
       it "resolves OrderDeleteService.execute to the class method definition" do
         child = tree.children.find { |c| c.label == "OrderDeleteService.execute" }
 

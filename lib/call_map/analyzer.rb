@@ -2,6 +2,7 @@
 
 require "prism"
 require_relative "call_extractor"
+require_relative "callback_extractor"
 require_relative "resolver"
 require_relative "call_node"
 
@@ -39,8 +40,9 @@ module CallMap
     end
 
     def build_children(definition, remaining_depth, visited)
+      callbacks = extract_callbacks(definition)
       calls = extract_calls(definition)
-      calls.map { |call| resolve_and_build(call, definition, remaining_depth, visited) }
+      (callbacks + calls).map { |call| resolve_and_build(call, definition, remaining_depth, visited) }
     end
 
     def resolve_and_build(call, parent_definition, remaining_depth, visited)
@@ -51,6 +53,13 @@ module CallMap
       else
         CallNode.new(method_call: call)
       end
+    end
+
+    def extract_callbacks(definition)
+      return [] unless definition.kind == :instance_method
+
+      source = File.read(definition.path)
+      CallbackExtractor.extract(source, definition.name)
     end
 
     def extract_calls(definition)
