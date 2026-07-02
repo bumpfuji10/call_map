@@ -23,15 +23,15 @@ module CallMap
     # @return [CallNode]
     def build_call_tree(definition, depth: 3)
       visited = Set.new
-      build_node(definition, nil, depth, visited)
+      build_node(definition, nil, depth, visited, entry: true)
     end
 
     private
 
-    def build_node(definition, method_call, remaining_depth, visited)
+    def build_node(definition, method_call, remaining_depth, visited, entry: false)
       key = node_key(definition)
       children = if remaining_depth.positive? && definition.method? && !visited.include?(key)
-                   build_children(definition, remaining_depth, visited | [key])
+                   build_children(definition, remaining_depth, visited | [key], entry: entry)
                  else
                    []
                  end
@@ -39,8 +39,8 @@ module CallMap
       CallNode.new(definition: definition, method_call: method_call, children: children)
     end
 
-    def build_children(definition, remaining_depth, visited)
-      callbacks = extract_callbacks(definition)
+    def build_children(definition, remaining_depth, visited, entry: false)
+      callbacks = entry ? extract_callbacks(definition) : []
       calls = extract_calls(definition)
       (callbacks + calls).map { |call| resolve_and_build(call, definition, remaining_depth, visited) }
     end
