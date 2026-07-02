@@ -175,6 +175,18 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "reopened class callbacks are aggregated" do
+      let(:definition) { index.find_instance_method("ReopenedController", "show") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "collects callbacks from every body of the reopened class" do
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).to include("auth")
+        expect(callback_names).to include("audit")
+      end
+    end
+
     context "string-specified only/except filters" do
       let(:definition) { index.find_instance_method("StringFilterController", "show") }
       let(:tree) { analyzer.build_call_tree(definition) }

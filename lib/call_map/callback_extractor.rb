@@ -14,46 +14,36 @@ module CallMap
     # @return [Array<MethodCall>]
     def self.extract(source, action_name, owner:)
       root = Prism.parse(source).value
-      class_body = find_class_body(root, owner)
-      return [] unless class_body
+      class_bodies = find_class_bodies(root, owner)
+      return [] if class_bodies.empty?
 
       extractor = new(action_name)
-      class_body.accept(extractor)
+      class_bodies.each { |body| body.accept(extractor) }
       extractor.callbacks
     end
 
-    def self.find_class_body(node, owner)
-      find_class_node(node, owner, [])&.body
+    # Collect ALL class bodies matching the owner (a class may be reopened
+    # multiple times in the same file), in source order.
+    def self.find_class_bodies(node, owner)
+      collect_class_nodes(node, owner, []).filter_map(&:body)
     end
 
-    def self.find_class_node(node, owner, namespace)
-      return search_within_class_or_module(node, owner, namespace) if class_or_module?(node)
+    def self.collect_class_nodes(node, owner, namespace)
+      return collect_within_class_or_module(node, owner, namespace) if class_or_module?(node)
 
-      search_children(node, owner, namespace)
+      node.child_nodes.compact.flat_map { |child| collect_class_nodes(child, owner, namespace) }
     end
 
     def self.class_or_module?(node)
       node.is_a?(Prism::ClassNode) || node.is_a?(Prism::ModuleNode)
     end
 
-    def self.search_within_class_or_module(node, owner, namespace)
+    def self.collect_within_class_or_module(node, owner, namespace)
       qualified = build_qualified_name(node, namespace)
-      return node if node.is_a?(Prism::ClassNode) && qualified == owner
+      matches = node.is_a?(Prism::ClassNode) && qualified == owner ? [node] : []
 
-      body_children = node.body&.child_nodes || []
-      body_children.compact.each do |child|
-        result = find_class_node(child, owner, qualified.split("::"))
-        return result if result
-      end
-      nil
-    end
-
-    def self.search_children(node, owner, namespace)
-      node.child_nodes.compact.each do |child|
-        result = find_class_node(child, owner, namespace)
-        return result if result
-      end
-      nil
+      body_children = (node.body&.child_nodes || []).compact
+      matches + body_children.flat_map { |child| collect_class_nodes(child, owner, qualified.split("::")) }
     end
 
     def self.build_qualified_name(node, namespace)
@@ -98,8 +88,8 @@ module CallMap
       parts.join("::")
     end
 
-    private_class_method :find_class_body, :find_class_node, :class_or_module?,
-                         :search_within_class_or_module, :search_children,
+    private_class_method :find_class_bodies, :collect_class_nodes, :class_or_module?,
+                         :collect_within_class_or_module,
                          :build_qualified_name, :absolute_constant?, :already_qualified?,
                          :const_path_to_string, :full_constant_path
 
