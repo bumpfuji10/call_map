@@ -122,12 +122,11 @@ module CallMap
     end
 
     # Resolve a superclass constant written relative to the subclass, mirroring
-    # Ruby's lexical lookup: each enclosing scope from innermost outward, then
-    # top-level. Compact-style classes have no outer nesting, so they resolve
-    # straight to top-level.
+    # Ruby's lexical lookup: each enclosing scope (a full qualified name) from
+    # innermost outward, then top-level.
     def resolve_class_name(name, nesting)
-      (nesting || []).size.downto(1) do |depth|
-        candidate = "#{nesting[0...depth].join('::')}::#{name}"
+      (nesting || []).reverse_each do |scope|
+        candidate = "#{scope}::#{name}"
         return candidate if @index.find_class_definitions(candidate).any?
       end
 

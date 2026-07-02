@@ -22,8 +22,9 @@ module CallMap
     def initialize(path)
       super()                # Prism::Visitor#initialize takes no args
       @path = path
-      @namespace = []        # stack of enclosing class/module names
+      @namespace = []        # stack of enclosing class/module names (for qualified naming)
       @singletons = []       # per-scope singleton owner (nil / String / :unresolved)
+      @lexical_scopes = []   # syntactic scope stack of FULL names (mirrors Module.nesting)
       @definitions = []
     end
 
@@ -114,24 +115,25 @@ module CallMap
                      lexical_nesting: nesting, superclass: superclass)
     end
 
-    # The lexical scope stack at the definition site, outermost first
-    # (e.g. ["Reports", "Runner"]). Ruby resolves relative constants against
-    # each scope from innermost outward, so the whole stack is preserved.
-    # A compact-style entry stays as one element ("Admin::Runner"), so its
-    # intermediate segments are never used as lookup prefixes.
+    # The lexical scope stack at the definition site, outermost first, where
+    # each entry is the scope's FULL qualified name (mirroring Module.nesting,
+    # which is purely syntactic). E.g. inside `module Admin; class Admin::Foo`
+    # the stack is ["Admin", "Admin::Foo"] — resolution tries each entry as a
+    # prefix from innermost outward, so both Admin::Foo::X and Admin::X are
+    # searched, but never a double-prefixed Admin::Admin::X.
     def lexical_nesting
-      return nil if @namespace.empty?
+      return nil if @lexical_scopes.empty?
 
-      @namespace.dup
+      @lexical_scopes.dup
     end
 
     # For class/module definitions: the scope stack OUTSIDE the definition
     # itself. A superclass expression (`class Foo < Bar`) is evaluated in
     # this outer scope, not inside the class body.
     def outer_nesting
-      return nil if @namespace.size <= 1
+      return nil if @lexical_scopes.size <= 1
 
-      @namespace[0..-2]
+      @lexical_scopes[0..-2]
     end
 
     # Route to absolute or relative namespace handling based on the constant node.
@@ -161,23 +163,30 @@ module CallMap
     def within_namespace(name)
       @namespace.push(name)
       @singletons.push(nil)
+      @lexical_scopes.push(current_namespace)
       yield
     ensure
       @namespace.pop
       @singletons.pop
+      @lexical_scopes.pop
     end
 
-    # For absolute constant paths (`class ::Foo::Bar`), temporarily replace
-    # the namespace stack with just the constant's own segments.
+    # For absolute constant paths (`class ::Foo::Bar`) and already-qualified
+    # compact-style names, replace the NAMING stack with just the constant's
+    # own segments. The lexical scope stack still gains the new scope while
+    # keeping the outer ones — Module.nesting is syntactic, so enclosing
+    # modules remain part of constant lookup even for such definitions.
     def within_absolute_namespace(name)
       saved_namespace = @namespace
       saved_singletons = @singletons
       @namespace = [name]
       @singletons = [nil]
+      @lexical_scopes.push(name)
       yield
     ensure
       @namespace = saved_namespace
       @singletons = saved_singletons
+      @lexical_scopes.pop
     end
 
     # Track the class-method owner implied by the current singleton scope.

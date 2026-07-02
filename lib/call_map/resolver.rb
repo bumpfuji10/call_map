@@ -68,13 +68,14 @@ module CallMap
     end
 
     # Try the constant against each lexical scope from innermost outward
-    # (mirroring Ruby's constant lookup), then fall back to top-level.
+    # (mirroring Ruby's constant lookup), then fall back to top-level. Each
+    # nesting entry is a scope's full qualified name and is used as a prefix
+    # directly, so a compact-style scope never exposes its path segments.
     def find_with_namespace_fallback(kind, owner, method_name, lexical_nesting)
       finder = kind == :class_method ? :find_class_method : :find_instance_method
 
-      (lexical_nesting || []).size.downto(1) do |depth|
-        prefix = lexical_nesting[0...depth].join("::")
-        result = @index.public_send(finder, "#{prefix}::#{owner}", method_name)
+      (lexical_nesting || []).reverse_each do |scope|
+        result = @index.public_send(finder, "#{scope}::#{owner}", method_name)
         return result if result
       end
 

@@ -278,6 +278,14 @@ RSpec.describe CallMap::Analyzer do
         expect(callback).not_to be_nil
         expect(callback).to be_resolved
       end
+
+      it "resolves constants via the outer module scope" do
+        helper = tree.children.find { |c| c.method_call&.method_name == "render" }
+
+        expect(helper).not_to be_nil
+        expect(helper).to be_resolved
+        expect(helper.definition.owner).to eq("Admin::DashboardHelper")
+      end
     end
 
     context "namespace-relative constant resolution" do
