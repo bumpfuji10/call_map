@@ -23,16 +23,16 @@ RSpec.describe CallMap::Formatters::TextTree do
         ├─ before_action authenticate_user!
         ├─ before_action authenticate
         ├─ before_action set_order
-        │  ├─ Order.find
-        │  └─ params.[]
-        ├─ authorize
+        │  ├─ Order.find [framework]
+        │  └─ params.[] [framework]
+        ├─ authorize [framework]
         ├─ OrderDeleteService.execute
         │  └─ OrderDeleteService#execute
-        │     └─ @order.destroy!
+        │     └─ @order.destroy! [framework]
         └─ OrderNotifier.notify_deletion
            └─ OrderNotifier#send_notification
               ├─ OrderNotifier#deliver
-              └─ @order.user
+              └─ @order.user [framework]
       TREE
 
       expect(format_tree_for("OrdersController", "destroy")).to eq(expected)
@@ -42,7 +42,7 @@ RSpec.describe CallMap::Formatters::TextTree do
       expected = <<~TREE
         OrderDeleteService.execute
         └─ OrderDeleteService#execute
-           └─ @order.destroy!
+           └─ @order.destroy! [framework]
       TREE
 
       expect(format_tree_for("OrderDeleteService", "execute", kind: :class_method)).to eq(expected)

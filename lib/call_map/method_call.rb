@@ -6,6 +6,16 @@ module CallMap
   # This is a plain value object and must NOT depend on the parser (Prism).
   # Building a MethodCall from an AST is the job of CallExtractor.
   class MethodCall
+    # Common Rails methods that appear as bare calls inside controllers and
+    # models. A bare call that stays unresolved and matches this list is
+    # displayed as a framework leaf.
+    KNOWN_FRAMEWORK_METHODS = %w[
+      redirect_to redirect_back render render_to_string head respond_to respond_with
+      params request response session cookies flash logger helpers url_for
+      current_user authenticate_user! sign_in sign_out authorize policy_scope
+      raise puts pp
+    ].freeze
+
     # @param receiver [String, nil] receiver expression ("OrderDeleteService", "self", nil for bare calls)
     # @param method_name [String] name of the called method
     # @param line [Integer] line number of the call site
@@ -37,6 +47,19 @@ module CallMap
 
     def bare?
       receiver.nil?
+    end
+
+    # Whether this call, IF it stays unresolved, should be shown as a
+    # framework leaf. An explicit receiver that did not resolve points
+    # outside the indexed app code; a bare call (including a callback filter
+    # like Devise's `before_action :authenticate_user!`) is framework-ish
+    # only when it matches the known Rails method list — an unlisted bare
+    # call may just be an analysis miss, so it gets no suffix instead.
+    def framework_leaf?
+      return false if dynamic?
+      return KNOWN_FRAMEWORK_METHODS.include?(method_name) if bare?
+
+      true
     end
 
     # Human-readable label for tree output.

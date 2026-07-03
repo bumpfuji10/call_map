@@ -27,16 +27,26 @@ module CallMap
 
     # Human-readable label for this node. A callback-originated node keeps its
     # callback label (e.g. "before_action set_order") even when resolved, so
-    # tree output can distinguish it from a plain call.
+    # tree output can distinguish it from a plain call. An unresolved call
+    # that points outside the indexed app code is marked as a framework leaf.
     def label
-      base = if definition && !method_call&.callback?
-               definition.qualified_name
-             elsif method_call
-               method_call.label
-             else
-               "[unknown]"
-             end
-      circular? ? "#{base} [circular]" : base
+      base = base_label
+      return "#{base} [circular]" if circular?
+      return "#{base} [framework]" if !resolved? && method_call&.framework_leaf?
+
+      base
+    end
+
+    private
+
+    def base_label
+      if definition && !method_call&.callback?
+        definition.qualified_name
+      elsif method_call
+        method_call.label
+      else
+        "[unknown]"
+      end
     end
   end
 end

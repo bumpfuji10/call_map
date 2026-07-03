@@ -149,6 +149,48 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "framework leaf labeling" do
+      let(:definition) { index.find_instance_method("RedirectingController", "cancel") }
+      let(:tree) { analyzer.build_call_tree(definition) }
+
+      it "marks a known bare framework call as [framework]" do
+        node = tree.children.find { |c| c.method_call&.method_name == "redirect_to" }
+
+        expect(node).not_to be_resolved
+        expect(node.label).to eq("redirect_to [framework]")
+      end
+
+      it "leaves an unlisted unresolved bare call without a suffix" do
+        node = tree.children.find { |c| c.method_call&.method_name == "unlisted_helper" }
+
+        expect(node).not_to be_resolved
+        expect(node.label).to eq("unlisted_helper")
+      end
+
+      it "marks an unresolved receiver call as [framework]" do
+        destroy_tree = analyzer.build_call_tree(index.find_instance_method("OrdersController", "destroy"))
+        set_order = destroy_tree.children.find { |c| c.method_call&.method_name == "set_order" }
+        find_node = set_order.children.find { |c| c.method_call&.method_name == "find" }
+
+        expect(find_node.label).to eq("Order.find [framework]")
+      end
+
+      it "marks an unresolved known-framework callback as [framework]" do
+        devise_tree = analyzer.build_call_tree(index.find_instance_method("DeviseStyleController", "show"))
+        callback = devise_tree.children.find { |c| c.method_call&.callback? }
+
+        expect(callback).not_to be_resolved
+        expect(callback.label).to eq("before_action authenticate_user! [framework]")
+      end
+
+      it "does not suffix resolved calls" do
+        destroy_tree = analyzer.build_call_tree(index.find_instance_method("OrdersController", "destroy"))
+        resolved = destroy_tree.children.find { |c| c.label == "OrderDeleteService.execute" }
+
+        expect(resolved).to be_resolved
+      end
+    end
+
     context "dynamic calls remain as leaf nodes" do
       let(:definition) { index.find_class_method("DynamicDispatchService", "execute") }
       let(:tree) { analyzer.build_call_tree(definition) }
