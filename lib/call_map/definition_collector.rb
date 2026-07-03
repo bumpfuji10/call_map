@@ -22,8 +22,11 @@ module CallMap
     def initialize(path)
       super()                # Prism::Visitor#initialize takes no args
       @path = path
-      @namespace = []        # stack of enclosing class/module names
+      @namespace = []        # stack of enclosing class/module names (for qualified naming)
       @singletons = []       # per-scope singleton owner (nil / String / :unresolved)
+      @lexical_scopes = []   # syntactic scope stack of FULL names (mirrors Module.nesting)
+      @visibilities = [:public] # per-scope visibility state toggled by private/protected/public
+      @inline_visibility = nil  # for the `private def foo` inline form
       @definitions = []
     end
 
@@ -37,7 +40,7 @@ module CallMap
     # Called when the traversal reaches a `class` definition.
     def visit_class_node(node)
       enter_namespace(node.constant_path) do
-        @definitions << build_definition(:class, current_namespace, node)
+        @definitions << build_definition(:class, current_namespace, node, superclass: superclass_name(node))
         super # descend into the class body (its methods etc.)
       end
     end
@@ -65,6 +68,19 @@ module CallMap
       @definitions << build_definition(info[:kind], node.name.to_s, node, owner: info[:owner]) if info
       # No super — do not recurse into method bodies. Nested defs inside a
       # method are runtime-only and should not appear in the static index.
+    end
+
+    # Track `private` / `protected` / `public` visibility directives at the
+    # class-body level (bare toggle, `private def foo`, and `private :foo`).
+    def visit_call_node(node)
+      directive = visibility_directive(node)
+      return super unless directive
+
+      args = node.arguments&.arguments
+      return with_inline_visibility(directive) { super } if args&.any? && args.all?(Prism::DefNode)
+
+      apply_visibility(directive, args)
+      super
     end
 
     private
@@ -99,8 +115,74 @@ module CallMap
       end
     end
 
-    def build_definition(kind, name, node, owner: nil)
-      Definition.new(kind: kind, name: name, owner: owner, path: @path, line: node.location.start_line)
+    # The superclass constant as written; an absolute path keeps its leading
+    # "::" so downstream resolution can skip the namespace fallback.
+    def superclass_name(node)
+      name = constant_name(node.superclass)
+      return name unless name && absolute_constant?(node.superclass)
+
+      "::#{name}"
+    end
+
+    def build_definition(kind, name, node, owner: nil, superclass: nil)
+      nesting = %i[instance_method class_method].include?(kind) ? lexical_nesting : outer_nesting
+      visibility = kind == :instance_method ? current_visibility : :public
+      Definition.new(kind: kind, name: name, owner: owner, path: @path, line: node.location.start_line,
+                     lexical_nesting: nesting, superclass: superclass, visibility: visibility)
+    end
+
+    def visibility_directive(node)
+      return nil unless node.receiver.nil? && %i[public private protected].include?(node.name)
+
+      node.name
+    end
+
+    def apply_visibility(directive, args)
+      if args.nil? || args.empty?
+        @visibilities[-1] = directive
+      else
+        mark_named_visibility(directive, args)
+      end
+    end
+
+    def current_visibility
+      @inline_visibility || @visibilities.last
+    end
+
+    def with_inline_visibility(directive)
+      @inline_visibility = directive
+      yield
+    ensure
+      @inline_visibility = nil
+    end
+
+    # `private :foo, :bar` — adjust already-collected definitions by name.
+    def mark_named_visibility(directive, args)
+      names = args.filter_map { |a| a.value if a.is_a?(Prism::SymbolNode) }
+      @definitions.each do |d|
+        d.visibility = directive if d.kind == :instance_method && d.owner == current_namespace && names.include?(d.name)
+      end
+    end
+
+    # The lexical scope stack at the definition site, outermost first, where
+    # each entry is the scope's FULL qualified name (mirroring Module.nesting,
+    # which is purely syntactic). E.g. inside `module Admin; class Admin::Foo`
+    # the stack is ["Admin", "Admin::Foo"] — resolution tries each entry as a
+    # prefix from innermost outward, so both Admin::Foo::X and Admin::X are
+    # searched, but never a double-prefixed Admin::Admin::X.
+    def lexical_nesting
+      return nil if @lexical_scopes.empty?
+
+      @lexical_scopes.dup
+    end
+
+    # For class/module definitions: the scope stack OUTSIDE the definition
+    # itself. A superclass expression (`class Foo < Bar`) is evaluated in
+    # this outer scope, not inside the class body.
+    def outer_nesting
+      return nil if @lexical_scopes.size <= 1
+
+      @lexical_scopes[0..-2]
     end
 
     # Route to absolute or relative namespace handling based on the constant node.
@@ -130,32 +212,51 @@ module CallMap
     def within_namespace(name)
       @namespace.push(name)
       @singletons.push(nil)
+      push_scope(current_namespace)
       yield
     ensure
       @namespace.pop
       @singletons.pop
+      pop_scope
     end
 
-    # For absolute constant paths (`class ::Foo::Bar`), temporarily replace
-    # the namespace stack with just the constant's own segments.
+    # For absolute constant paths (`class ::Foo::Bar`) and already-qualified
+    # compact-style names, replace the NAMING stack with just the constant's
+    # own segments. The lexical scope stack still gains the new scope while
+    # keeping the outer ones — Module.nesting is syntactic, so enclosing
+    # modules remain part of constant lookup even for such definitions.
     def within_absolute_namespace(name)
-      saved_namespace = @namespace
-      saved_singletons = @singletons
+      saved = [@namespace, @singletons]
       @namespace = [name]
       @singletons = [nil]
+      push_scope(name)
       yield
     ensure
-      @namespace = saved_namespace
-      @singletons = saved_singletons
+      @namespace, @singletons = saved
+      pop_scope
+    end
+
+    # Visibility state and the syntactic scope stack move together whenever a
+    # class/module scope is entered.
+    def push_scope(lexical_name)
+      @visibilities.push(:public)
+      @lexical_scopes.push(lexical_name)
+    end
+
+    def pop_scope
+      @visibilities.pop
+      @lexical_scopes.pop
     end
 
     # Track the class-method owner implied by the current singleton scope.
     # owner is a String ("class << Foo"), or :unresolved ("class << obj").
     def within_singleton(owner)
       @singletons.push(owner)
+      @visibilities.push(:public)
       yield
     ensure
       @singletons.pop
+      @visibilities.pop
     end
 
     def current_singleton_owner

@@ -166,6 +166,51 @@ RSpec.describe CallMap::CallExtractor do
       end
     end
 
+    context "with absolute constant receiver (::Foo.bar)" do
+      let(:source) do
+        <<~RUBY
+          class Foo
+            def run
+              ::TopLevel.execute
+              Relative.execute
+            end
+          end
+        RUBY
+      end
+      let(:calls) { described_class.extract(def_node_for(source, "run")) }
+
+      it "marks ::TopLevel.execute as absolute" do
+        call = calls.find { |c| c.receiver == "TopLevel" }
+
+        expect(call).to be_absolute
+      end
+
+      it "does not mark Relative.execute as absolute" do
+        call = calls.find { |c| c.receiver == "Relative" }
+
+        expect(call).not_to be_absolute
+      end
+    end
+
+    context "with ::Foo.new.execute chain" do
+      let(:source) do
+        <<~RUBY
+          class Foo
+            def run
+              ::Service.new.execute
+            end
+          end
+        RUBY
+      end
+      let(:calls) { described_class.extract(def_node_for(source, "run")) }
+
+      it "propagates absolute through the call chain" do
+        call = calls.find { |c| c.method_name == "execute" }
+
+        expect(call).to be_absolute
+      end
+    end
+
     context "with an empty method body" do
       let(:source) do
         <<~RUBY

@@ -64,8 +64,22 @@ module CallMap
         receiver: receiver_str,
         method_name: dynamic ? dynamic_target(node) : method_name,
         line: node.location.start_line,
-        dynamic: dynamic
+        dynamic: dynamic,
+        absolute: absolute_constant?(node.receiver)
       )
+    end
+
+    def absolute_constant?(node)
+      case node
+      when Prism::ConstantPathNode
+        current = node
+        current = current.parent while current.is_a?(Prism::ConstantPathNode)
+        current.nil?
+      when Prism::CallNode
+        absolute_constant?(node.receiver)
+      else
+        false
+      end
     end
 
     def receiver_label(receiver)

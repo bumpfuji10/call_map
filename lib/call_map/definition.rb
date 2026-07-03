@@ -14,7 +14,10 @@ module CallMap
     # @param path [String] file path where the definition is written
     # @param line [Integer] starting line number of the definition
     # @param owner [String, nil] qualified constant name of the enclosing class/module (for methods)
-    def initialize(kind:, name:, path:, line:, owner: nil)
+    # @param lexical_nesting [Array<String>, nil] lexical scope stack at the definition site, outermost first
+    # @param superclass [String, nil] superclass constant name as written (for :class definitions)
+    # @param visibility [Symbol] :public / :private / :protected (instance methods)
+    def initialize(kind:, name:, path:, line:, owner: nil, lexical_nesting: nil, superclass: nil, visibility: :public)
       raise ArgumentError, "unknown kind: #{kind}" unless KINDS.include?(kind)
 
       @kind = kind
@@ -22,11 +25,20 @@ module CallMap
       @owner = owner
       @path = path
       @line = line
+      @lexical_nesting = lexical_nesting
+      @superclass = superclass
+      @visibility = visibility
       # Placeholder for method-leading comments etc., to be filled by a later issue.
       @metadata = {}
     end
 
-    attr_reader :kind, :name, :owner, :path, :line
+    attr_reader :kind, :name, :owner, :path, :line, :lexical_nesting, :superclass
+    # Writable so `private :foo`-style post-declarations can adjust it.
+    attr_accessor :visibility
+
+    def public_method?
+      visibility == :public
+    end
     attr_accessor :metadata
 
     def class_or_module?
