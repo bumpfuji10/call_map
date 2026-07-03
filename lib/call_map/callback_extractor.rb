@@ -8,21 +8,21 @@ module CallMap
   #
   # This is a Prism boundary class — Prism node types are referenced only here.
   class CallbackExtractor < Prism::Visitor
-    EMPTY_RESULT = { callbacks: [], skips: [] }.freeze
-
     # @param source [String] the file source
     # @param action_name [String] the action method name
     # @param owner [String] the class name to scope extraction to
-    # @return [Hash] { callbacks: Array<MethodCall>, skips: Array<String> }
-    #   where skips are method names removed via skip_before_action for this action
+    # @return [Array<Hash>] callback events in declaration order:
+    #   { type: :add, call: MethodCall } for before_action,
+    #   { type: :skip, name: String } for skip_before_action.
+    #   Order matters — a callback re-added after a skip runs again.
     def self.extract(source, action_name, owner:)
       root = Prism.parse(source).value
       class_bodies = find_class_bodies(root, owner)
-      return EMPTY_RESULT if class_bodies.empty?
+      return [] if class_bodies.empty?
 
       extractor = new(action_name)
       class_bodies.each { |body| body.accept(extractor) }
-      { callbacks: extractor.callbacks, skips: extractor.skips }
+      extractor.events
     end
 
     # Collect ALL class bodies matching the owner (a class may be reopened
@@ -99,20 +99,20 @@ module CallMap
     def initialize(action_name)
       super()
       @action_name = action_name
-      @callbacks = []
-      @skips = []
+      @events = []
     end
 
-    attr_reader :callbacks, :skips
+    attr_reader :events
 
     def visit_call_node(node)
       if node.name == :before_action && callback_applies?(node)
         extract_callback_names(node).each do |name|
-          @callbacks << MethodCall.new(receiver: nil, method_name: name, line: node.location.start_line,
-                                       callback: "before_action")
+          call = MethodCall.new(receiver: nil, method_name: name, line: node.location.start_line,
+                                callback: "before_action")
+          @events << { type: :add, call: call }
         end
       elsif node.name == :skip_before_action && callback_applies?(node)
-        @skips.concat(extract_callback_names(node))
+        extract_callback_names(node).each { |name| @events << { type: :skip, name: name } }
       end
       super
     end

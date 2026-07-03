@@ -85,24 +85,32 @@ module CallMap
       end
     end
 
-    # Collect callbacks for the action, walking the superclass chain so that
-    # parent-controller callbacks run first (as Rails does). A callback
-    # skipped anywhere in the chain via skip_before_action does not run.
+    # Collect callbacks for the action by replaying before_action /
+    # skip_before_action declarations in inheritance order (parent first) and
+    # declaration order, as Rails does. A skip removes only the callbacks
+    # accumulated so far — a callback re-added afterwards runs again.
     def extract_callbacks(definition)
       return [] unless definition.kind == :instance_method
 
-      results = @index.ancestor_chain(definition.owner).reverse.map do |owner|
-        callbacks_declared_on(owner, definition.name)
+      events = @index.ancestor_chain(definition.owner).reverse.flat_map do |owner|
+        callback_events_on(owner, definition.name)
       end
-      skipped = results.flat_map { |r| r[:skips] }
-      results.flat_map { |r| r[:callbacks] }.reject { |call| skipped.include?(call.method_name) }
+      replay_callback_events(events)
     end
 
-    def callbacks_declared_on(owner, action_name)
-      results = @index.find_class_definitions(owner).map(&:path).uniq.map do |path|
+    def replay_callback_events(events)
+      events.each_with_object([]) do |event, active|
+        case event[:type]
+        when :add then active << event[:call]
+        when :skip then active.reject! { |call| call.method_name == event[:name] }
+        end
+      end
+    end
+
+    def callback_events_on(owner, action_name)
+      @index.find_class_definitions(owner).map(&:path).uniq.flat_map do |path|
         CallbackExtractor.extract(File.read(path), action_name, owner: owner)
       end
-      { callbacks: results.flat_map { |r| r[:callbacks] }, skips: results.flat_map { |r| r[:skips] } }
     end
 
     def extract_calls(definition)

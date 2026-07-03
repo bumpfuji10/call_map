@@ -229,6 +229,15 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "callback re-added after a skip runs again" do
+      it "keeps the callback that was skipped and then re-added" do
+        tree = analyzer.build_call_tree(index.find_instance_method("ReaddController", "show"))
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).to eq(["authenticate_user!"])
+      end
+    end
+
     context "receiver calls resolve through the receiver's inheritance chain" do
       let(:definition) { index.find_class_method("ChildService", "run") }
       let(:tree) { analyzer.build_call_tree(definition) }
