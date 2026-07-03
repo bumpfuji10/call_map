@@ -254,6 +254,16 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "explicit-receiver definitions resolve constants lexically" do
+      it "resolves via the enclosing module, not the owner's namespace" do
+        tree = analyzer.build_call_tree(index.find_class_method("Reports::Publisher", "announce"))
+        child = tree.children.find { |c| c.method_call&.method_name == "deliver" }
+
+        expect(child).to be_resolved
+        expect(child.definition.owner).to eq("Reports::Notifier")
+      end
+    end
+
     context "constants nested in the parent class" do
       it "resolves Worker.call to the parent's nested Worker" do
         tree = analyzer.build_call_tree(index.find_instance_method("ChildJob", "run"))

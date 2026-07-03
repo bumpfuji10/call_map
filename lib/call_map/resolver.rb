@@ -73,13 +73,24 @@ module CallMap
     # the child), then fall back to top-level. Each scope entry is a full
     # qualified name used as a prefix directly.
     def find_with_namespace_fallback(finder, owner, method_name, lexical_nesting, context_owner)
-      scopes = (lexical_nesting || []).reverse + @index.ancestor_chain(context_owner)
+      scopes = (lexical_nesting || []).reverse + ancestor_scopes(lexical_nesting, context_owner)
       scopes.each do |scope|
         result = find_in_chain(finder, "#{scope}::#{owner}", method_name)
         return result if result
       end
 
       find_in_chain(finder, owner, method_name)
+    end
+
+    # Ruby searches the ancestors of the innermost lexically enclosing scope
+    # (the cref), not the method's owner. Only when the method is defined
+    # inside its own class body do the two coincide — for explicit-receiver
+    # definitions like `module Reports; def Generator.build` the owner's
+    # ancestors are NOT part of constant lookup.
+    def ancestor_scopes(lexical_nesting, context_owner)
+      return [] unless (lexical_nesting || []).last == context_owner
+
+      @index.ancestor_chain(context_owner)
     end
 
     # Method dispatch walks the receiver class's superclass chain, so a
