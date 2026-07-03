@@ -524,7 +524,10 @@ OrdersController#destroy
 6. `around_action` と `after_action` を MVP 近くで対応するか
 7. `self.execute -> new.execute` をどう表現するか
 8. `send(:foo)` のような symbol literal dynamic call を解決するか
-9. unresolved call の suffix は `[framework]`、`[unknown]`、なし、のどれにするか
+9. ~~unresolved call の suffix は `[framework]`、`[unknown]`、なし、のどれにするか~~ → **決定済み(issue #11)**
+   - receiver 付きで未解決(`User.find`、`@order.destroy!`、`current_user.orders.find`)→ `[framework]`。自作コードの索引に無い receiver は外部コードとみなす
+   - bare で未解決 → 既知の Rails メソッドリスト(`redirect_to`、`render`、`params` など `MethodCall::KNOWN_FRAMEWORK_METHODS`)に一致する場合のみ `[framework]`、それ以外は suffix なし
+   - `[unknown]` は使わない。解析漏れと外部コードを区別できないため、誤ラベルを付けるより suffix なしで返す
 10. auth focus を first-class feature にするか、後続の formatter/filter にするか
 
 ## 初期実装スケッチ
