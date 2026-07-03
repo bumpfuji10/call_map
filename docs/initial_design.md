@@ -297,12 +297,11 @@ def validate_deletable!
 end
 ```
 
-出力案:
+出力（実装済み）:
 
 ```text
-OrderDeleteService#execute
-└─ validate_deletable!
-   # 注文削除前に、削除可能な状態か検証する
+OrderDeleteService#execute  # 注文を削除する
+└─ OrderDeleteService#validate_deletable!  # 注文削除前に、削除可能な状態か検証する
    └─ OrderDeletionPolicy#validate!
 ```
 
@@ -311,11 +310,17 @@ OrderDeleteService#execute
 CallMap は単なる call graph ではなく、コード読解補助ツールです。
 メソッド直上コメントには、業務意図、権限、side effect、運用上の注意、domain rule が書かれていることがあります。
 
-初期方針:
+確定方針(issue #10 で実装):
 
-- 内部モデルでは method-leading comment を metadata として持つ
-- 最初は CLI flag で opt-in 表示にする
-- 長すぎるコメントは tree の視認性を落とすため、デフォルト表示は慎重に扱う
+- 内部モデルでは method-leading comment を `Definition#metadata[:comments]` として全行保持する
+- 収集対象は def 直上の連続した whole-line コメントのみ
+  - 空行で途切れたコメント(file-top の magic comment など)は紐づけない
+  - コード行末尾の trailing comment は紐づけない
+- 表示は **opt-in**(`TextTree.format(root, include_comments: true)`)
+  - tree の主目的は構造把握であり、コメントはノイズになり得るため default off
+- 表示は行を増やさず、ノードラベルの後ろに `  # コメント` を付ける inline 形式
+- 長すぎるコメントは視認性を落とすため、**1行目のみ・60文字で切り詰め**(超過分は `…`)
+  - metadata には全行残っているので、将来の formatter は別の表示を選べる
 
 CLI 案:
 

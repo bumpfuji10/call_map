@@ -143,4 +143,33 @@ RSpec.describe CallMap::SourceIndex do
       expect(definition.owner).to eq("TopLevelService")
     end
   end
+
+  describe "leading comments" do
+    it "attaches contiguous leading comment lines to the method definition" do
+      definition = index.find_instance_method("CommentedService", "call")
+
+      expect(definition.comments).to eq([
+                                          "Entry point. Validates input and delegates to the worker.",
+                                          "Keep this idempotent."
+                                        ])
+    end
+
+    it "returns an empty array for a method without a leading comment" do
+      definition = index.find_instance_method("CommentedService", "no_comment")
+
+      expect(definition.comments).to eq([])
+    end
+
+    it "does not attach a trailing comment from the line above" do
+      definition = index.find_instance_method("CommentedService", "with_trailing_above")
+
+      expect(definition.comments).to eq([])
+    end
+
+    it "does not attach the file-top magic comment across a blank line" do
+      definition = index.find_instance_method("CommentedService", "call")
+
+      expect(definition.comments).not_to include("frozen_string_literal: true")
+    end
+  end
 end

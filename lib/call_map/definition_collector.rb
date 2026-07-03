@@ -33,7 +33,9 @@ module CallMap
     def collect(source)
       # Prism.parse returns a ParseResult; .value is the root (ProgramNode).
       # accept(self) starts the visitor traversal from the root.
-      Prism.parse(source).value.accept(self)
+      result = Prism.parse(source)
+      @comment_lines = pure_comment_lines(source, result.comments)
+      result.value.accept(self)
       @definitions
     end
 
@@ -65,9 +67,14 @@ module CallMap
       info = method_kind_and_owner(node.receiver)
       # info is nil when the method belongs to an unresolvable receiver
       # (e.g. `class << obj`); such defs are skipped rather than mis-registered.
-      @definitions << build_definition(info[:kind], node.name.to_s, node, owner: info[:owner]) if info
-      # No super — do not recurse into method bodies. Nested defs inside a
-      # method are runtime-only and should not appear in the static index.
+      # No super in either case — do not recurse into method bodies. Nested
+      # defs inside a method are runtime-only and should not appear in the index.
+      return unless info
+
+      definition = build_definition(info[:kind], node.name.to_s, node, owner: info[:owner])
+      comments = leading_comments(node.location.start_line)
+      definition.metadata[:comments] = comments if comments.any?
+      @definitions << definition
     end
 
     # Track `private` / `protected` / `public` visibility directives at the
@@ -129,6 +136,30 @@ module CallMap
       visibility = kind == :instance_method ? current_visibility : :public
       Definition.new(kind: kind, name: name, owner: owner, path: @path, line: node.location.start_line,
                      lexical_nesting: nesting, superclass: superclass, visibility: visibility)
+    end
+
+    # Map of line number → comment text, limited to whole-line comments.
+    # A trailing comment after code (`x = 1 # setup`) must not be mistaken
+    # for a leading comment of the following def.
+    def pure_comment_lines(source, comments)
+      lines = source.lines
+      comments.each_with_object({}) do |comment, map|
+        line = comment.location.start_line
+        map[line] = comment.slice.sub(/\A#\s?/, "") if lines[line - 1]&.strip&.start_with?("#")
+      end
+    end
+
+    # Contiguous comment lines directly above the given line, in source order.
+    # A blank line breaks contiguity, so file-top magic comments are not
+    # attached to the first method.
+    def leading_comments(line)
+      collected = []
+      cursor = line - 1
+      while @comment_lines.key?(cursor)
+        collected.unshift(@comment_lines[cursor])
+        cursor -= 1
+      end
+      collected
     end
 
     def visibility_directive(node)

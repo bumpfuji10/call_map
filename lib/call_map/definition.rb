@@ -28,7 +28,7 @@ module CallMap
       @lexical_nesting = lexical_nesting
       @superclass = superclass
       @visibility = visibility
-      # Placeholder for method-leading comments etc., to be filled by a later issue.
+      # Free-form metadata; :comments holds the method's leading comment lines.
       @metadata = {}
     end
 
@@ -40,6 +40,11 @@ module CallMap
       visibility == :public
     end
     attr_accessor :metadata
+
+    # Leading comment lines attached at collection time ("#" stripped).
+    def comments
+      metadata[:comments] || []
+    end
 
     def class_or_module?
       %i[class module].include?(kind)
