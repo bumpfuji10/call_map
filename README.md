@@ -103,6 +103,14 @@ bundle exec call_map OrdersController#destroy --depth=2 --include-comments
 
 設計上のトレードオフの詳細は [docs/initial_design.md](docs/initial_design.md) を参照してください。
 
+## バージョン方針
+
+[Semantic Versioning](https://semver.org/) に従います。現在は `0.1.0`（MVP）で、`0.x` の間は出力形式や API に破壊的変更が入る可能性があります。RubyGems への公開は `1.0.0` を目安に検討します。
+
+## License
+
+[MIT License](LICENSE.txt)
+
 ## Development
 
 ```bash
