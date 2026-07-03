@@ -1,39 +1,71 @@
 # frozen_string_literal: true
 
-# CLIクライアント
 require "optparse"
 
 module CallMap
+  # Command-line entry point: parses the target and options, builds the
+  # index, and prints the call tree.
+  #
+  #   call_map OrdersController#destroy --depth=3 --include-comments
   class CLI
+    DEFAULT_DEPTH = 3
+
     def self.start(argv)
-      parse_options!(argv)
-      target = argv.first
-      validate_target!(target)
-      puts "[TODO] Analysis not yet implemented."
+      new.start(argv)
     end
 
-    def self.parse_options!(argv)
+    def start(argv)
+      options = parse_options!(argv)
+      target = argv.first
+      validate_target!(target)
+
+      tree = build_tree(target, options)
+      puts Formatters::TextTree.format(tree, include_comments: options.fetch(:include_comments, false))
+    end
+
+    private
+
+    def build_tree(target, options)
+      owner, method_name = target.split("#", 2)
+      index = SourceIndex.build(root: options.fetch(:root, Dir.pwd))
+      definition = index.find_instance_method(owner, method_name)
+      abort "Error: definition not found for '#{target}'." unless definition
+
+      Analyzer.new(index).build_call_tree(definition, depth: options.fetch(:depth, DEFAULT_DEPTH))
+    end
+
+    def parse_options!(argv)
       options = {}
-      OptionParser.new do |opts|
-        opts.on("--depth=N", Integer) do |n|
-          options[:depth] = n
-        end
-      end.parse!(argv)
+      option_parser(options).parse!(argv)
       options
     rescue OptionParser::ParseError => e
       warn "Error: #{e.message}"
       exit 1
     end
 
-    def self.validate_target!(target)
+    def option_parser(options)
+      OptionParser.new do |opts|
+        opts.on("--depth=N", Integer, "Maximum traversal depth (default: #{DEFAULT_DEPTH})") do |n|
+          options[:depth] = n
+        end
+        opts.on("--include-comments", "Show method leading comments in the tree") do
+          options[:include_comments] = true
+        end
+        opts.on("--root=PATH", "Application root to index (default: current directory)") do |path|
+          options[:root] = path
+        end
+      end
+    end
+
+    def validate_target!(target)
       return if valid_class_name_method_format?(target)
 
       warn "Error: Invalid target format '#{target}'. Expected ClassName#method_name."
       exit 1
     end
 
-    def self.valid_class_name_method_format?(target)
-      /\A[A-Z][A-Za-z0-9_]*(::[A-Z][A-Za-z0-9_]*)*#[a-z][A-Za-z0-9_]*[!?=]?\z/.match?(target)
+    def valid_class_name_method_format?(target)
+      /\A[A-Z][A-Za-z0-9_]*(::[A-Z][A-Za-z0-9_]*)*#[a-z_][A-Za-z0-9_]*[!?=]?\z/.match?(target)
     end
   end
 end
