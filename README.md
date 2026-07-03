@@ -1,39 +1,45 @@
 # CallMap
 
-Rails アプリケーションのメソッド呼び出しチェーンを静的解析して、text tree として出力する gem です。
+[![Gem Version](https://badge.fury.io/rb/call_map.svg)](https://rubygems.org/gems/call_map)
 
-controller action を起点に「この action は何を呼び、その先で何が起きるのか」を、Notion や PR にそのまま貼れる形で可視化します。コードリーディングの補助ツールであり、完全な静的解析器ではありません。
+CallMap statically analyzes a Rails application and prints the method call chain from a controller action as a text tree.
 
-## 目的
+Starting from a controller action, it visualizes "what does this action call, and what happens next" in a format you can paste directly into Notion or a pull request. It is a code-reading aid, not a complete static analyzer.
 
-Rails アプリで処理の流れを追うとき、`destroy` action からサービス、モデル、notifier へと手でコードを辿りながらメモを書くことがあります。CallMap はその「呼び出しツリーのメモ」を自動生成します。
+## Why
 
-- framework 内部ではなく、**自分たちのアプリケーションコード**に集中する
-- 出力は安定していて、ドキュメントや PR に貼れる
-- `before_action` などの Rails DSL も処理経路として表示する
+When following a flow through a Rails app, you often trace code by hand — from a `destroy` action into services, models, and notifiers — writing a rough call tree as you go. CallMap generates that "call tree memo" automatically.
 
-## インストール
+- Focus on **your application code**, not framework internals
+- Stable output you can paste into docs and pull requests
+- Rails DSLs like `before_action` are shown as part of the execution path
 
-現時点では RubyGems には公開していません。GitHub から直接インストールしてください。
+## Installation
 
 ```ruby
 # Gemfile
-gem "call_map", github: "bumpfuji10/call_map"
+gem "call_map"
 ```
 
 ```bash
 bundle install
 ```
 
-## 使い方
+Or install it directly:
 
-Rails アプリのルートディレクトリで、`ClassName#method_name` 形式の起点を指定して実行します。
+```bash
+gem install call_map
+```
+
+## Usage
+
+Run from your Rails application root, specifying the entry point as `ClassName#method_name`:
 
 ```bash
 bundle exec call_map OrdersController#destroy --depth=3
 ```
 
-### 出力例
+### Example output
 
 ```text
 OrdersController#destroy
@@ -51,61 +57,61 @@ OrdersController#destroy
       └─ @order.user [framework]
 ```
 
-### オプション
+### Options
 
-| オプション | 説明 |
+| Option | Description |
 |---|---|
-| `--depth=N` | 探索の深さ制限（デフォルト: 3） |
-| `--include-comments` | メソッド直上のコメントをツリーに表示する |
-| `--root=PATH` | 解析対象のアプリケーションルート（デフォルト: カレントディレクトリ。`app/**/*.rb` を索引します） |
+| `--depth=N` | Maximum traversal depth (default: 3) |
+| `--include-comments` | Show method leading comments in the tree |
+| `--root=PATH` | Application root to analyze (default: current directory; indexes `app/**/*.rb`) |
 
 ```bash
 bundle exec call_map OrdersController#destroy --depth=2 --include-comments
 ```
 
-### ラベルの意味
+### Label reference
 
-| ラベル | 意味 |
+| Label | Meaning |
 |---|---|
-| `before_action foo` | `before_action` 由来の呼び出し（action 本体より前に表示） |
-| `foo [framework]` | 自分のコード内に定義が見つからず、Rails / gem 側と思われる呼び出し。ここで探索を止めます |
-| `foo [dynamic]` | `send` / `public_send` などの動的呼び出し。解決せず葉として表示します |
-| `Foo#bar [circular]` | 探索パス上で同じメソッドに再訪した（循環）。ここで探索を止めます |
-| suffix なしの未解決呼び出し | 自クラス等への呼び出しに見えるが定義を発見できなかったもの。解析漏れの可能性があるため、誤ったラベルを付けません |
+| `before_action foo` | A call originating from `before_action` (shown before the action body) |
+| `foo [framework]` | No definition found in your code — likely Rails or a gem. Traversal stops here |
+| `foo [dynamic]` | A dynamic call such as `send` / `public_send`. Left unresolved as a leaf |
+| `Foo#bar [circular]` | The same method was revisited on the current path (a cycle). Traversal stops here |
+| Unresolved call with no suffix | Looks like a call into your own code but no definition was found. It may be an analysis miss, so no label is attached rather than a wrong one |
 
-## 正確性についてのスタンス
+## Accuracy stance
 
-**CallMap は完全な静的解析器ではありません。** Ruby は動的な言語であり、静的解析で実行時の挙動を完全に再現することはできません。CallMap は「コードを読む人が手で書くメモ」の精度を目標にしており、以下を意図的に選択しています。
+**CallMap is not a complete static analyzer.** Ruby is a dynamic language, and static analysis cannot fully reproduce runtime behavior. CallMap aims for the accuracy of "the memo a careful reader would write by hand", and makes the following deliberate choices:
 
-- 解決できない呼び出しは、誤って潜るのではなく**葉として止める**
-- 確信の持てない呼び出しに誤ったラベルを付けない
-- Rails 内部・Ruby 標準ライブラリ・gem 内部には**潜らない**（`[framework]` として表示して止まります）
+- Calls that cannot be resolved **stop as leaves** instead of descending into a wrong definition
+- No label is attached to a call unless there is reasonable confidence
+- Rails internals, the Ruby standard library, and gem internals are **never traversed** (they appear as `[framework]` leaves)
 
-## MVP で対応している呼び出しパターン
+## Supported call patterns (MVP)
 
-- 同一クラス内の bare call / private method（継承チェーン込み）
-- `SomeService.execute` — class method
-- `SomeClass.new(...).execute` / `self.new.perform` — instance method
-- `self.foo` — 呼び出し元のコンテキスト（instance / class method）に応じて解決
-- namespace 内の相対定数（`Reports::Runner` から `Generator.build` → `Reports::Generator.build`）、絶対定数（`::Foo`）
-- 継承: 親クラスのメソッド・親クラス配下のネスト定数・superclass の lexical 解決
-- `before_action` / `skip_before_action`（`only:` / `except:`（値は symbol / 文字列 / 配列）、複数指定、継承、reopen、skip 後の再追加。callback 名は symbol 指定のみ対応 — `before_action "audit"` のような文字列指定の filter 名は未対応）
-- メソッド直上コメントの保持と表示（`--include-comments`）
+- Bare calls / private methods within the same class (including the inheritance chain)
+- `SomeService.execute` — class methods
+- `SomeClass.new(...).execute` / `self.new.perform` — instance methods
+- `self.foo` — resolved according to the calling context (instance / class method)
+- Relative constants inside namespaces (`Generator.build` inside `Reports::Runner` → `Reports::Generator.build`) and absolute constants (`::Foo`)
+- Inheritance: parent-class methods, constants nested in a parent class, lexical resolution of superclasses
+- `before_action` / `skip_before_action` — `only:` / `except:` (symbol / string / array values), multiple filters, inheritance, reopened classes, re-adding after a skip. Filter names must be symbols (`before_action "audit"` with a string filter name is not supported)
+- Method leading comments, preserved and displayed with `--include-comments`
 
 ## Known limitations
 
-- `around_action` / `after_action` には対応していません
-- `include` / `extend` された concern / module のメソッド解決には対応していません
-- メタプログラミング（`define_method`、`method_missing`、動的な定数参照など）は解決できません
-- 同名メソッドが複数ある場合、Ruby の実行時ディスパッチと異なる解決をすることがあります
-- 索引対象は `app/**/*.rb` のみです（`lib/` などは対象外）
-- `[framework]` 判定はヒューリスティックです（receiver 付き未解決、または既知の Rails メソッド名リスト）
+- `around_action` / `after_action` are not supported
+- Method resolution through `include` / `extend` (concerns / modules) is not supported
+- Metaprogramming (`define_method`, `method_missing`, dynamic constant references) cannot be resolved
+- When multiple methods share a name, resolution may differ from Ruby's runtime dispatch
+- Only `app/**/*.rb` is indexed (`lib/` and others are out of scope)
+- `[framework]` detection is heuristic (unresolved calls with an explicit receiver, or a known Rails method name list)
 
-設計上のトレードオフの詳細は [docs/initial_design.md](docs/initial_design.md) を参照してください。
+See [docs/initial_design.md](docs/initial_design.md) (Japanese) for detailed design trade-offs.
 
-## バージョン方針
+## Versioning
 
-[Semantic Versioning](https://semver.org/) に従います。現在は `0.1.0`（MVP）で、`0.x` の間は出力形式や API に破壊的変更が入る可能性があります。RubyGems への公開は `1.0.0` を目安に検討します。
+CallMap follows [Semantic Versioning](https://semver.org/). It is currently `0.x` (MVP), so breaking changes to the output format or API may occur between minor versions.
 
 ## License
 
@@ -114,13 +120,13 @@ bundle exec call_map OrdersController#destroy --depth=2 --include-comments
 ## Development
 
 ```bash
-bin/setup          # 依存のインストール
-bundle exec rspec  # テスト
+bin/setup          # install dependencies
+bundle exec rspec  # run tests
 bundle exec rubocop
-bin/console        # 対話プロンプト
+bin/console        # interactive prompt
 ```
 
-fixture の Rails アプリ（`spec/fixtures/rails_app`）に対して手元で実行できます:
+You can run against the fixture Rails app (`spec/fixtures/rails_app`) locally:
 
 ```bash
 ruby -Ilib exe/call_map "OrdersController#destroy" --root=spec/fixtures/rails_app
