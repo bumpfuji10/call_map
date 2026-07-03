@@ -10,6 +10,7 @@ require_relative "call_map/callback_extractor"
 require_relative "call_map/call_node"
 require_relative "call_map/resolver"
 require_relative "call_map/analyzer"
+require_relative "call_map/formatters/text_tree"
 
 module CallMap
   class Error < StandardError; end
