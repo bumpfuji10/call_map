@@ -175,6 +175,14 @@ RSpec.describe CallMap::Analyzer do
         expect(find_node.label).to eq("Order.find [framework]")
       end
 
+      it "marks an unresolved known-framework callback as [framework]" do
+        devise_tree = analyzer.build_call_tree(index.find_instance_method("DeviseStyleController", "show"))
+        callback = devise_tree.children.find { |c| c.method_call&.callback? }
+
+        expect(callback).not_to be_resolved
+        expect(callback.label).to eq("before_action authenticate_user! [framework]")
+      end
+
       it "does not suffix resolved calls" do
         destroy_tree = analyzer.build_call_tree(index.find_instance_method("OrdersController", "destroy"))
         resolved = destroy_tree.children.find { |c| c.label == "OrderDeleteService.execute" }

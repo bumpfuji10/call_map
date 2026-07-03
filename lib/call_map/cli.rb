@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require "optparse"
+require_relative "source_index"
+require_relative "analyzer"
+require_relative "formatters/text_tree"
 
 module CallMap
   # Command-line entry point: parses the target and options, builds the

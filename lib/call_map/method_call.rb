@@ -51,11 +51,12 @@ module CallMap
 
     # Whether this call, IF it stays unresolved, should be shown as a
     # framework leaf. An explicit receiver that did not resolve points
-    # outside the indexed app code; a bare call is framework-ish only when
-    # it matches the known Rails method list (an unlisted bare call may just
-    # be an analysis miss, so it gets no suffix rather than a wrong label).
+    # outside the indexed app code; a bare call (including a callback filter
+    # like Devise's `before_action :authenticate_user!`) is framework-ish
+    # only when it matches the known Rails method list — an unlisted bare
+    # call may just be an analysis miss, so it gets no suffix instead.
     def framework_leaf?
-      return false if dynamic? || callback?
+      return false if dynamic?
       return KNOWN_FRAMEWORK_METHODS.include?(method_name) if bare?
 
       true
