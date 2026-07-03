@@ -45,15 +45,9 @@ module CallMap
 
     def option_parser(options)
       OptionParser.new do |opts|
-        opts.on("--depth=N", Integer, "Maximum traversal depth (default: #{DEFAULT_DEPTH})") do |n|
-          options[:depth] = n
-        end
-        opts.on("--include-comments", "Show method leading comments in the tree") do
-          options[:include_comments] = true
-        end
-        opts.on("--root=PATH", "Application root to index (default: current directory)") do |path|
-          options[:root] = path
-        end
+        opts.on("--depth=N", Integer, "Maximum traversal depth (default: #{DEFAULT_DEPTH})") { |n| options[:depth] = n }
+        opts.on("--include-comments", "Show method leading comments in the tree") { options[:include_comments] = true }
+        opts.on("--root=PATH", "Application root to index (default: cwd)") { |path| options[:root] = path }
       end
     end
 
