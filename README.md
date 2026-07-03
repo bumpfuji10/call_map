@@ -89,7 +89,7 @@ bundle exec call_map OrdersController#destroy --depth=2 --include-comments
 - `self.foo` — 呼び出し元のコンテキスト（instance / class method）に応じて解決
 - namespace 内の相対定数（`Reports::Runner` から `Generator.build` → `Reports::Generator.build`）、絶対定数（`::Foo`）
 - 継承: 親クラスのメソッド・親クラス配下のネスト定数・superclass の lexical 解決
-- `before_action` / `skip_before_action`（`only:` / `except:`、複数指定、文字列指定、継承、reopen、skip 後の再追加）
+- `before_action` / `skip_before_action`（`only:` / `except:`（値は symbol / 文字列 / 配列）、複数指定、継承、reopen、skip 後の再追加。callback 名は symbol 指定のみ対応 — `before_action "audit"` のような文字列指定の filter 名は未対応）
 - メソッド直上コメントの保持と表示（`--include-comments`）
 
 ## Known limitations
