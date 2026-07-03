@@ -143,10 +143,14 @@ module CallMap
     end
 
     def find_scope_filter(node)
-      keyword_hash = node.arguments&.arguments&.find { |a| a.is_a?(Prism::KeywordHashNode) }
-      return nil unless keyword_hash
+      # Options arrive as a KeywordHashNode (`only: :show`) or a HashNode
+      # when written with explicit braces (`{ only: :show }`).
+      options = node.arguments&.arguments&.find do |a|
+        a.is_a?(Prism::KeywordHashNode) || a.is_a?(Prism::HashNode)
+      end
+      return nil unless options
 
-      assoc = scope_assoc(keyword_hash)
+      assoc = scope_assoc(options)
       assoc && [assoc.key.value, assoc.value]
     end
 

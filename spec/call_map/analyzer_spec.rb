@@ -238,6 +238,32 @@ RSpec.describe CallMap::Analyzer do
       end
     end
 
+    context "braces-style callback options" do
+      it "applies only: inside explicit braces" do
+        tree = analyzer.build_call_tree(index.find_instance_method("BracedFilterController", "show"))
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).to include("audit")
+      end
+
+      it "excludes actions outside the braced only: filter" do
+        tree = analyzer.build_call_tree(index.find_instance_method("BracedFilterController", "edit"))
+        callback_names = tree.children.select { |c| c.method_call&.callback? }.map { |c| c.method_call.method_name }
+
+        expect(callback_names).not_to include("audit")
+      end
+    end
+
+    context "constants nested in the parent class" do
+      it "resolves Worker.call to the parent's nested Worker" do
+        tree = analyzer.build_call_tree(index.find_instance_method("ChildJob", "run"))
+        child = tree.children.find { |c| c.method_call&.method_name == "call" }
+
+        expect(child).to be_resolved
+        expect(child.definition.owner).to eq("BaseJob::Worker")
+      end
+    end
+
     context "receiver calls resolve through the receiver's inheritance chain" do
       let(:definition) { index.find_class_method("ChildService", "run") }
       let(:tree) { analyzer.build_call_tree(definition) }

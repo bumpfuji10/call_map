@@ -44,7 +44,7 @@ module CallMap
       # `SomeClass.new(...)` chain → instance method on SomeClass
       if receiver.match?(/\A([A-Z][A-Za-z0-9:]*?)\.new\z/)
         owner = receiver.sub(/\.new\z/, "")
-        return resolve_constant(:instance_method, owner, call, lexical_nesting)
+        return resolve_constant(:instance_method, owner, call, lexical_nesting, context_owner)
       end
 
       # bare `new` or `self.new` chain (implicit self.new inside a class method only)
@@ -53,26 +53,28 @@ module CallMap
       end
 
       # `SomeClass.method` → class method
-      return resolve_constant(:class_method, receiver, call, lexical_nesting) if receiver.match?(/\A[A-Z]/)
+      return unless receiver.match?(/\A[A-Z]/)
 
-      nil
+      resolve_constant(:class_method, receiver, call, lexical_nesting, context_owner)
     end
 
-    def resolve_constant(kind, owner, call, lexical_nesting)
+    def resolve_constant(kind, owner, call, lexical_nesting, context_owner)
       finder = kind == :class_method ? :find_class_method : :find_instance_method
       if call.absolute?
         find_in_chain(finder, owner, call.method_name)
       else
-        find_with_namespace_fallback(finder, owner, call.method_name, lexical_nesting)
+        find_with_namespace_fallback(finder, owner, call.method_name, lexical_nesting, context_owner)
       end
     end
 
     # Try the constant against each lexical scope from innermost outward
-    # (mirroring Ruby's constant lookup), then fall back to top-level. Each
-    # nesting entry is a scope's full qualified name and is used as a prefix
-    # directly, so a compact-style scope never exposes its path segments.
-    def find_with_namespace_fallback(finder, owner, method_name, lexical_nesting)
-      (lexical_nesting || []).reverse_each do |scope|
+    # (mirroring Ruby's constant lookup), then against the context class's
+    # superclass chain (constants nested in a parent class are visible from
+    # the child), then fall back to top-level. Each scope entry is a full
+    # qualified name used as a prefix directly.
+    def find_with_namespace_fallback(finder, owner, method_name, lexical_nesting, context_owner)
+      scopes = (lexical_nesting || []).reverse + @index.ancestor_chain(context_owner)
+      scopes.each do |scope|
         result = find_in_chain(finder, "#{scope}::#{owner}", method_name)
         return result if result
       end
