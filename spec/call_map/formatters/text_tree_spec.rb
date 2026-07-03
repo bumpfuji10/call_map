@@ -65,6 +65,36 @@ RSpec.describe CallMap::Formatters::TextTree do
       expect(described_class.format(tree)).to eq("OrdersController#destroy\n")
     end
 
+    context "with include_comments: true" do
+      let(:tree) { analyzer.build_call_tree(index.find_instance_method("CommentedService", "call")) }
+
+      it "appends the first leading comment line to resolved nodes" do
+        expected = <<~TREE
+          CommentedService#call  # Entry point. Validates input and delegates to the worker.
+          └─ CommentedService#helper  # This is a deliberately long leading comment that goes far be…
+        TREE
+
+        expect(described_class.format(tree, include_comments: true)).to eq(expected)
+      end
+
+      it "truncates long comments to #{described_class::MAX_COMMENT_LENGTH} characters with an ellipsis" do
+        output = described_class.format(tree, include_comments: true)
+        comment = output.lines.last[/# (.+)$/, 1]
+
+        expect(comment.length).to eq(described_class::MAX_COMMENT_LENGTH + 1)
+        expect(comment).to end_with("…")
+      end
+
+      it "does not show comments by default (opt-in)" do
+        expected = <<~TREE
+          CommentedService#call
+          └─ CommentedService#helper
+        TREE
+
+        expect(described_class.format(tree)).to eq(expected)
+      end
+    end
+
     it "produces identical output across repeated runs" do
       first = format_tree_for("OrdersController", "destroy")
 
