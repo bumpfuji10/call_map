@@ -145,6 +145,36 @@ RSpec.describe CallMap::CallExtractor do
       end
     end
 
+    context "with local variable receiver" do
+      let(:source) do
+        <<~RUBY
+          class Foo
+            def bar(order)
+              result = build_result
+              result.success?
+              order.save
+            end
+          end
+        RUBY
+      end
+      let(:calls) { described_class.extract(def_node_for(source, "bar")) }
+
+      it "uses the local variable name as receiver" do
+        call = calls.find { |c| c.method_name == "success?" }
+
+        expect(call).not_to be_nil
+        expect(call.receiver).to eq("result")
+        expect(call.label).to eq("result.success?")
+      end
+
+      it "uses the method parameter name as receiver" do
+        call = calls.find { |c| c.method_name == "save" }
+
+        expect(call).not_to be_nil
+        expect(call.receiver).to eq("order")
+      end
+    end
+
     context "with a nested def inside a method body" do
       let(:source) do
         <<~RUBY

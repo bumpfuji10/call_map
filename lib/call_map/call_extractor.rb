@@ -86,7 +86,10 @@ module CallMap
       case receiver
       when nil then nil
       when Prism::SelfNode then "self"
-      when Prism::ConstantReadNode, Prism::InstanceVariableReadNode
+      when Prism::ConstantReadNode, Prism::InstanceVariableReadNode, Prism::LocalVariableReadNode
+        # Local variables are shown by name as written in the source (like a
+        # hand-written memo) but are never resolved — inferring their type
+        # would risk descending into a wrong definition.
         receiver.name.to_s
       when Prism::ConstantPathNode then constant_path_name(receiver)
       when Prism::CallNode then call_chain_label(receiver)
